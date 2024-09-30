@@ -35,6 +35,7 @@ pub fn grpc_amm_pools_task(
     JoinHandle<Result<(), anyhow::Error>>,
     tokio::sync::mpsc::UnboundedReceiver<(Pubkey, Vec<u8>)>,
 ) {
+    log::debug!("Starting GRPC amm pools task");
     let (new_accounts_sender, new_accounts_receiver) = tokio::sync::mpsc::unbounded_channel();
     let task = tokio::task::spawn({
         let grpc_endpoint = grpc_endpoint.clone();
@@ -125,6 +126,7 @@ pub fn grpc_accounts_updater_task(
 ) -> (GrpcAccounts, JoinHandle<anyhow::Result<()>>) {
     let (accounts_notifier, mut accounts_watch) = tokio::sync::watch::channel(vec![]);
 
+    log::debug!("Starting GRPC account-updater task");
     let main_task = tokio::task::spawn({
         let store = Arc::clone(&store);
         async move {
@@ -169,6 +171,7 @@ pub fn grpc_accounts_updater_task(
                     continue;
                 }
 
+                log::trace!("Resetting accounts updater GRPC task");
                 current_task.abort();
                 current_task = new_task;
             }

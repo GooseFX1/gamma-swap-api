@@ -4,19 +4,9 @@ use jupiter_swap_api_client::{
 };
 use solana_sdk::{pubkey, pubkey::Pubkey};
 
-// const DEVNET_MINT_1: Pubkey = pubkey!("FNBmFaQWsEpHXpTe3z4oNk8BKgcSMaZz9PDFYjgoDABo");
-// const DEVNET_MINT_2: Pubkey = pubkey!("HGRjfGyepfNw7HbzPUS8jmoJ3uFzB4FB6NSRgKsr6ECA");
-// const DEVNET_MINT_3: Pubkey = pubkey!("GcwnWyNfg5p3KVSHHn6xvgrYkCYKPYnRKpDn9o7BPiRJ");
-// const DEVNET_MINT_4: Pubkey = pubkey!("Fc9eSn5QpAiPAmT3UFpDd6ExTeQ4MP7X8R3qcfUCFG1T");
-// const DEVNET_MINT_5: Pubkey = pubkey!("CPfxKMrELo1tdtNtxXgGU8WZkc3EMYXNTwjkpP7A5PHC");
-// const DEVNET_MINT_6: Pubkey = pubkey!("HWAhSw5JMWAVxZYbKpC823Dksy2fq5tQNZnFHPtpj4T4");
-
-const MINT_1: Pubkey = pubkey!("N4CdHcZYMj7DufSu89m1gi3RFxt8NiJQ9PmfNg8kc8P");
-const MINT_2: Pubkey = pubkey!("N5Y2m9HSPDBr8ft6UVWL4vLoaBfqPYawxhM1uEMx5Gk");
-// config: Fc9eSn5QpAiPAmT3UFpDd6ExTeQ4MP7X8R3qcfUCFG1T
-// state: AboLeuWSp48nhmstX1Psc3M66UQfTFQEecC378BrtyeS
-// input-vault: 2NKXxPnk4DBvWFA524PxhusmzJd6YAtZmSiU25EkCKSy
-// output-vault: 2NKXxPnk4DBvWFA524PxhusmzJd6YAtZmSiU25EkCKSy
+const MINT_1: Pubkey = pubkey!("N6QvkdoGTkYN5f1uHH1rBzyiZhh7yE5twrp8EpzivuS");
+const MINT_2: Pubkey = pubkey!("N796TBCqdm61LNJ8GXAHJBW7uBPWAnru7bv5YS3pV4S");
+// Pool state: 93EnCRgiDKg6PpBZ6VsMqTUEJjD4pWRwiyEuNEERnpCV
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -36,9 +26,9 @@ pub async fn main() -> anyhow::Result<()> {
         .quote(&QuoteRequest {
             input_mint: MINT_1,
             output_mint: MINT_2,
-            amount: 1000,
+            amount: 1_000_000_000,
             swap_mode: Some(SwapMode::ExactIn),
-            slippage_bps: 10_000,
+            slippage_bps: 1_000, // 1_000
             platform_fee_bps: None,
             dexes: None,
             excluded_dexes: None,

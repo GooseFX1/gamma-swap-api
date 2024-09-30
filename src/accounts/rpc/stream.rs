@@ -25,6 +25,7 @@ pub fn rpc_amm_pools_task(
 ) {
     let (new_accounts_sender, new_accounts_receiver) = tokio::sync::mpsc::unbounded_channel();
 
+    log::debug!("Starting RPC new pools task");
     let task = tokio::task::spawn(async move {
         let mut interval = tokio::time::interval(poll_frequency);
 
@@ -36,6 +37,7 @@ pub fn rpc_amm_pools_task(
                 error!("Failed getting amm pool keys by GPA");
                 continue;
             };
+            log::debug!("Got {} pools for program and config", keys.len());
 
             let Ok(pools) = rpc::get_multiple_account_data(&rpc_client, &keys).await else {
                 error!("Failed getting multiple accountInfo by RPC for amm-pools-task");
@@ -44,7 +46,11 @@ pub fn rpc_amm_pools_task(
 
             for (pool, account) in pools {
                 if let Some(account) = account {
-                    _ = new_accounts_sender.send((pool, account))
+                    if new_accounts_sender.send((pool, account)).is_ok() {
+                        log::trace!("Sent pool {} to account service task", pool);
+                    } else {
+                        log::error!("Failed to send pool {} to account service task", pool);
+                    }
                 } else {
                     error!("Got null data for pool {} from rpc", pool);
                 }
@@ -60,6 +66,8 @@ pub fn rpc_accounts_updater_task(
     refresh_frequency: Duration,
 ) -> (RpcAccounts, JoinHandle<anyhow::Result<()>>) {
     let keys = Arc::new(DashSet::<Pubkey>::new());
+    log::debug!("Starting RPC account-updater task");
+
     let task = tokio::task::spawn({
         let mut refresh_interval = tokio::time::interval(refresh_frequency);
         let rpc_client = Arc::clone(&rpc_client);
