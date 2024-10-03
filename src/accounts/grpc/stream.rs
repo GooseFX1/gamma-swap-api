@@ -33,10 +33,10 @@ pub fn grpc_amm_pools_task(
     config: Pubkey,
 ) -> (
     JoinHandle<Result<(), anyhow::Error>>,
-    tokio::sync::mpsc::UnboundedReceiver<(Pubkey, Vec<u8>)>,
+    tokio::sync::mpsc::Receiver<(Pubkey, Vec<u8>)>,
 ) {
     log::debug!("Starting GRPC amm pools task");
-    let (new_accounts_sender, new_accounts_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (new_accounts_sender, new_accounts_receiver) = tokio::sync::mpsc::channel(1000);
     let task = tokio::task::spawn({
         let grpc_endpoint = grpc_endpoint.clone();
         let grpc_x_token = grpc_x_token.clone();
@@ -95,7 +95,11 @@ pub fn grpc_amm_pools_task(
                             if let Some(account) = update.account {
                                 let pubkey =
                                     Pubkey::new_from_array(account.pubkey[0..32].try_into()?);
-                                if new_accounts_sender.send((pubkey, account.data)).is_err() {
+                                if new_accounts_sender
+                                    .send((pubkey, account.data))
+                                    .await
+                                    .is_err()
+                                {
                                     error!("Receiver end of GRPC amm pools channel closed. Exiting task");
                                     break 'outer;
                                 }

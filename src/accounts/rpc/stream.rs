@@ -21,9 +21,9 @@ pub fn rpc_amm_pools_task(
     poll_frequency: Duration,
 ) -> (
     JoinHandle<Result<(), anyhow::Error>>,
-    tokio::sync::mpsc::UnboundedReceiver<(Pubkey, Vec<u8>)>,
+    tokio::sync::mpsc::Receiver<(Pubkey, Vec<u8>)>,
 ) {
-    let (new_accounts_sender, new_accounts_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (new_accounts_sender, new_accounts_receiver) = tokio::sync::mpsc::channel(1000);
 
     log::debug!("Starting RPC new pools task");
     let task = tokio::task::spawn(async move {
@@ -46,7 +46,7 @@ pub fn rpc_amm_pools_task(
 
             for (pool, account) in pools {
                 if let Some(account) = account {
-                    if new_accounts_sender.send((pool, account)).is_ok() {
+                    if new_accounts_sender.send((pool, account)).await.is_ok() {
                         log::trace!("Sent pool {} to account service task", pool);
                     } else {
                         log::error!("Failed to send pool {} to account service task", pool);

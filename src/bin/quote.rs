@@ -4,9 +4,17 @@ use jupiter_swap_api_client::{
 };
 use solana_sdk::{pubkey, pubkey::Pubkey};
 
-const MINT_1: Pubkey = pubkey!("N6QvkdoGTkYN5f1uHH1rBzyiZhh7yE5twrp8EpzivuS");
-const MINT_2: Pubkey = pubkey!("N796TBCqdm61LNJ8GXAHJBW7uBPWAnru7bv5YS3pV4S");
-// Pool state: 93EnCRgiDKg6PpBZ6VsMqTUEJjD4pWRwiyEuNEERnpCV
+// const PROGRAM_ID: Pubkey = pubkey!("gaMmp8CxTCKFbtpoGrcxccDtJJSRyF7hzTkKcuPDbRG");
+// const CONFIG: Pubkey = pubkey!("FMqMyfBXw3FKjsBb3fkcpNNdfVUSUWhfHkSUt2a87Q5Z");
+// const MINT_1: Pubkey = pubkey!("N6QvkdoGTkYN5f1uHH1rBzyiZhh7yE5twrp8EpzivuS");
+// const MINT_2: Pubkey = pubkey!("N796TBCqdm61LNJ8GXAHJBW7uBPWAnru7bv5YS3pV4S");
+// const POOL: Pubkey = pubkey!(93EnCRgiDKg6PpBZ6VsMqTUEJjD4pWRwiyEuNEERnpCV)
+
+// const PROGRAM_ID: Pubkey = pubkey!("GAMMA7meSFWaBXF25oSUgmGRwaW6sCMFLmBNiMSdbHVT");
+// const CONFIG: Pubkey = pubkey!("68yDnv1sDzU3L2cek5kNEszKFPaK9yUJaC4ghV5LAXW6");
+const MINT_1: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+const MINT_2: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+// const POOL: Pubkey = pubkey!(Hjm1F98vgVdN7Y9L46KLqcZZWyTKS9tj9ybYKJcXnSng);
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -28,7 +36,7 @@ pub async fn main() -> anyhow::Result<()> {
             output_mint: MINT_2,
             amount: 1_000_000_000,
             swap_mode: Some(SwapMode::ExactIn),
-            slippage_bps: 1_000, // 1_000
+            slippage_bps: 1000,
             platform_fee_bps: None,
             dexes: None,
             excluded_dexes: None,

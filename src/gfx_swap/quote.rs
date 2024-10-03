@@ -71,10 +71,10 @@ impl GfxSwapClient {
         if cfg!(debug_assertions) {
             log::info!("config: {}", self.gamma_config);
             log::info!("pool: {}", pool);
-            log::info!("token0 vault: {}", token_0_vault);
-            log::info!("token1 vault: {}", token_1_vault);
-            log::info!("token0 mint: {}", token_0_mint);
-            log::info!("token1 mint: {}", token_1_mint);
+            log::info!("vault0: {}", token_0_vault);
+            log::info!("vault1: {}", token_1_vault);
+            log::info!("token0: {}", token_0_mint);
+            log::info!("token1: {}", token_1_mint);
             log::info!("observation: {}", observation);
         }
 

@@ -45,13 +45,13 @@ pub struct Opts {
 
 #[derive(Debug, Parser)]
 enum Mode {
-    Grpc {
+    UseGrpc {
         #[clap(long, env = "GRPC_ADDR")]
         addr: String,
         #[clap(long, env = "GRPC_X_TOKEN")]
         x_token: Option<String>,
     },
-    Rpc {
+    UseRpc {
         #[clap(long, env = "RPC_NEW_POOLS_FREQUENCY")]
         gpa_poll_frequency_seconds: u64,
         #[clap(long, env = "RPC_ACCOUNT_REFRESH_FREQUENCY")]
@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
 
     let store = Arc::new(accounts::MemStore::default());
     let (amm_pools, amm_pools_task, accounts_store, accounts_updater_task) = match opts.mode {
-        Mode::Grpc { addr, x_token } => {
+        Mode::UseGrpc { addr, x_token } => {
             let (pools_task, pool_receiver) = accounts::grpc::stream::grpc_amm_pools_task(
                 addr.clone(),
                 x_token.clone(),
@@ -100,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
                 accounts_updater_task,
             )
         }
-        Mode::Rpc {
+        Mode::UseRpc {
             gpa_poll_frequency_seconds,
             refresh_frequency_seconds,
         } => {
@@ -127,7 +127,7 @@ async fn main() -> anyhow::Result<()> {
     tasks.extend([amm_pools_task, accounts_updater_task]);
 
     let (account_service_task, accounts_service) = accounts::service::bootstrap_accounts_service(
-        tokio_stream::wrappers::UnboundedReceiverStream::new(amm_pools),
+        tokio_stream::wrappers::ReceiverStream::new(amm_pools),
         accounts_store,
         Arc::clone(&rpc_client),
         opts.amm_program_id,
