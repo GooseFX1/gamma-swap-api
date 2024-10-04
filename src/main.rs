@@ -19,7 +19,6 @@ use tower_http::cors::CorsLayer;
 
 mod accounts;
 mod blockhash_polling;
-mod gfx_amm_api;
 mod gfx_swap;
 mod handlers;
 mod utils;
@@ -27,18 +26,34 @@ mod utils;
 #[derive(Debug, Parser)]
 #[clap(version, about, long_about = None)]
 pub struct Opts {
-    #[clap(long, env = "RPC_URL")]
+    #[clap(long, env, help = "Solana cluster RPC-URL")]
     rpc_url: String,
-    #[clap(long, env = "AMM_CONFIG")]
+
+    #[clap(long, env, help = "Protocol config address")]
     amm_config: Pubkey,
-    #[clap(long, env = "AMM_PROGRAM_ID")]
+
+    #[clap(long, env, help = "The Gamma Program ID")]
     amm_program_id: Pubkey,
-    #[clap(long, env = "HOST")]
+
+    #[clap(long, env, help = "Server host")]
     host: String,
-    #[clap(long, env = "PORT")]
+
+    #[clap(long, env, help = "Server port")]
     port: String,
-    #[clap(short, long, env = "BLOCKHASH_POLL_FREQUENCY")]
-    blockhash_poll_frequency_s: u64,
+
+    #[clap(
+        long,
+        env,
+        help = "How frequently to poll for a new blockhash(in milliseconds)"
+    )]
+    blockhash_poll_frequency_ms: Option<u64>,
+
+    #[clap(long, env, help = "URL to a hosted Jupiter price API endpoint")]
+    price_api_url: Option<String>,
+
+    #[clap(long, env, help = "How frequently to refresh market prices")]
+    price_refresh_frequency_ms: u64,
+
     #[clap(subcommand)]
     mode: Mode,
 }
@@ -75,6 +90,7 @@ async fn main() -> anyhow::Result<()> {
         Arc::clone(&rpc_client),
         Arc::clone(&blockhash),
         commitment_config,
+        opts.blockhash_poll_frequency_ms.map(Duration::from_millis),
     );
     tasks.push(blockhash_task);
 
@@ -127,9 +143,9 @@ async fn main() -> anyhow::Result<()> {
     tasks.extend([amm_pools_task, accounts_updater_task]);
 
     let (account_service_task, accounts_service) = accounts::service::bootstrap_accounts_service(
+        Arc::clone(&rpc_client),
         tokio_stream::wrappers::ReceiverStream::new(amm_pools),
         accounts_store,
-        Arc::clone(&rpc_client),
         opts.amm_program_id,
         opts.amm_config,
     )
@@ -149,7 +165,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/quote", get(handlers::quote::quote))
         .route("/swap", post(handlers::swap::swap_transaction))
         .route(
-            "/swap_instructions",
+            "/swap-instructions",
             post(handlers::swap::swap_instructions),
         )
         .with_state(gfx_swap)

@@ -10,9 +10,14 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::sync::RwLock;
 
 pub struct GfxSwapClient {
+    /// Solana RPC client
     pub solana_rpc: Arc<RpcClient>,
+    /// Handle for retrieving accountInfos
     pub accounts_service: AccountsService,
+    /// The Gamma protocol config address
     pub gamma_config: Pubkey,
+    /// The Gamma program
     pub gamma_program_id: Pubkey,
+    /// Handle for getting latest blockhash
     pub blockhash: Arc<RwLock<RecentBlockhash>>,
 }

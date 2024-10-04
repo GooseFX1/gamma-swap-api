@@ -8,11 +8,12 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::hash::Hash;
 use tokio::sync::RwLock;
 
+const DEFAULT_REFRESH_RATE: Duration = Duration::from_secs(5);
+
 pub struct RecentBlockhash {
     pub hash: Hash,
     pub last_valid_block_height: u64,
 }
-const BLOCKHASH_REFRESH_RATE: Duration = Duration::from_secs(5);
 
 pub async fn get_blockhash_data_with_retry(
     rpc_client: &RpcClient,
@@ -45,6 +46,7 @@ pub fn start_blockhash_polling_task(
     rpc_client: Arc<RpcClient>,
     blockhash_notif: Arc<RwLock<RecentBlockhash>>,
     commitment_config: CommitmentConfig,
+    poll_rate: Option<Duration>,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     tokio::spawn(async move {
         loop {
@@ -58,7 +60,7 @@ pub fn start_blockhash_polling_task(
                 };
             }
 
-            tokio::time::sleep(BLOCKHASH_REFRESH_RATE).await;
+            tokio::time::sleep(poll_rate.unwrap_or(DEFAULT_REFRESH_RATE)).await;
         }
     })
 }

@@ -65,8 +65,10 @@ impl GfxSwapClient {
         ));
         let update = self.blockhash.read().await;
         message.set_recent_blockhash(update.hash);
-        let versioned_tx =
-            VersionedTransaction::try_new::<[&solana_sdk::signature::Keypair; 0]>(message, &[])?;
+        let versioned_tx = VersionedTransaction {
+            signatures: vec![],
+            message,
+        };
         let swap_transaction = bincode::serialize(&versioned_tx)?;
 
         Ok(SwapResponse {
@@ -189,9 +191,28 @@ impl GfxSwapClient {
             &output_token_program,
         );
 
-        if *wrap_and_unwrap_sol && req.quote_response.input_mint == spl_token::native_mint::ID {
-            let sync_ix = spl_token::instruction::sync_native(&spl_token::ID, &input_ata).unwrap();
-            setup_instructions.push(sync_ix);
+        if req.quote_response.input_mint == spl_token::native_mint::ID {
+            // Only create an input-ata if it's the native mint
+            let create_ata_ix =
+                spl_associated_token_account::instruction::create_associated_token_account_idempotent(
+                    &req.user_public_key,
+                    &req.user_public_key,
+                    &req.quote_response.input_mint,
+                    &input_token_program,
+                );
+            setup_instructions.push(create_ata_ix);
+
+            // Only wrap SOL if user specifies this behaviour and the input-token is SOL
+            if *wrap_and_unwrap_sol {
+                let transfer_ix = solana_sdk::system_instruction::transfer(
+                    &req.user_public_key,
+                    &input_ata,
+                    req.quote_response.in_amount,
+                );
+                let sync_ix =
+                    spl_token::instruction::sync_native(&spl_token::ID, &input_ata).unwrap();
+                setup_instructions.extend([transfer_ix, sync_ix]);
+            }
         }
 
         if destination_token_account.is_none() {
@@ -206,7 +227,7 @@ impl GfxSwapClient {
                 );
             setup_instructions.push(create_ata_ix);
 
-            // Only unwrap sol if destination-token-account is not specified
+            // Only unwrap SOL if destination-token-account is not specified and output-mint is SOL
             if *wrap_and_unwrap_sol && req.quote_response.output_mint == spl_token::native_mint::ID
             {
                 let close_ix = spl_token_2022::instruction::close_account(

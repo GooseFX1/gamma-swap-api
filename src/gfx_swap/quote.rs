@@ -2,7 +2,7 @@ use crate::accounts::{AccountsError, AccountsGetter};
 use crate::gfx_swap::GfxSwapClient;
 use crate::utils::derive_pool_pda;
 
-use std::ops::Mul;
+use std::ops::{Div, Mul, Sub};
 use std::time::{Instant, SystemTime};
 
 use anchor_lang::AccountDeserialize;
@@ -10,6 +10,8 @@ use gamma::curve::{CurveCalculator, TradeDirection};
 use gamma::states::{AmmConfig, ObservationState, PoolState};
 use jupiter_swap_api_client::quote::{QuoteRequest, QuoteResponse, SwapMode};
 use jupiter_swap_api_client::route_plan_with_metadata::{RoutePlanStep, SwapInfo};
+use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::Decimal;
 use solana_sdk::program_error::ProgramError;
 use spl_token_2022::{
     extension::transfer_fee::{TransferFeeConfig, MAX_FEE_BASIS_POINTS},
@@ -34,6 +36,8 @@ pub enum QuoteError {
     InvalidRequest(String),
     #[error("No pool exists for this input-mint - output-mint pair")]
     PairNotTradeable,
+    #[error("{0}")]
+    Any(#[from] anyhow::Error),
 }
 
 impl GfxSwapClient {
@@ -67,16 +71,6 @@ impl GfxSwapClient {
         let token_0_vault = pool_state.token_0_vault;
         let token_1_vault = pool_state.token_1_vault;
         let observation = pool_state.observation_key;
-
-        if cfg!(debug_assertions) {
-            log::info!("config: {}", self.gamma_config);
-            log::info!("pool: {}", pool);
-            log::info!("vault0: {}", token_0_vault);
-            log::info!("vault1: {}", token_1_vault);
-            log::info!("token0: {}", token_0_mint);
-            log::info!("token1: {}", token_1_mint);
-            log::info!("observation: {}", observation);
-        }
 
         let amm_config_account = self
             .accounts_service
@@ -197,6 +191,15 @@ impl GfxSwapClient {
         };
 
         let fee_amount = u64::try_from(swap_result.dynamic_fee).unwrap();
+        let initial_price = Decimal::from_u64(total_input_token_amount - fee_amount)
+            .unwrap()
+            .div(Decimal::from_u64(total_output_token_amount).unwrap());
+        let final_price = Decimal::from_u128(swap_result.new_swap_source_amount)
+            .unwrap()
+            .div(Decimal::from_u128(swap_result.new_swap_destination_amount).unwrap());
+        let price_impact =
+            (Decimal::from(1).sub(initial_price.div(final_price))).mul(Decimal::from(100));
+
         let response = QuoteResponse {
             input_mint: quote.input_mint,
             output_mint: quote.output_mint,
@@ -205,8 +208,8 @@ impl GfxSwapClient {
             other_amount_threshold,
             swap_mode,
             slippage_bps: quote.slippage_bps,
-            platform_fee: None,               // todo!(),
-            price_impact_pct: "".to_string(), // todo!(),
+            platform_fee: None, // todo!(),
+            price_impact_pct: price_impact.to_string(),
             route_plan: vec![RoutePlanStep {
                 swap_info: SwapInfo {
                     amm_key: self.gamma_program_id,

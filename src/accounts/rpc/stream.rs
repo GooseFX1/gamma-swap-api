@@ -46,10 +46,9 @@ pub fn rpc_amm_pools_task(
 
             for (pool, account) in pools {
                 if let Some(account) = account {
-                    if new_accounts_sender.send((pool, account)).await.is_ok() {
-                        log::trace!("Sent pool {} to account service task", pool);
-                    } else {
-                        log::error!("Failed to send pool {} to account service task", pool);
+                    if new_accounts_sender.send((pool, account)).await.is_err() {
+                        log::error!("Receiver end of GRPC amm pools channel closed. Exiting task");
+                        break;
                     }
                 } else {
                     error!("Got null data for pool {} from rpc", pool);

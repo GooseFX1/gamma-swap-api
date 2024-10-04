@@ -12,16 +12,18 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::task::JoinHandle;
 
 pub async fn bootstrap_accounts_service(
+    rpc_client: Arc<RpcClient>,
     mut amm_pools: impl Stream<Item = (Pubkey, Vec<u8>)> + std::marker::Unpin + Send + 'static,
     accounts_store: Arc<dyn AccountsGetter>,
-    rpc_client: Arc<RpcClient>,
     program_id: Pubkey,
     config: Pubkey,
 ) -> anyhow::Result<(JoinHandle<Result<(), anyhow::Error>>, AccountsService)> {
-    log::debug!("Bootstrapping accounts service");
     let mut processed_pools = HashSet::<Pubkey>::new();
     let mut pool_keys = rpc::get_amm_pool_pubkeys(&rpc_client, &config, &program_id).await?;
-    log::debug!("Got {} pools for program and config", pool_keys.len());
+    log::debug!(
+        "Bootstrapped accounts service with data for {} pools",
+        pool_keys.len()
+    );
     pool_keys.push(config);
 
     let mut pools = rpc::get_multiple_account_data(&rpc_client, &pool_keys).await?;
@@ -97,9 +99,9 @@ async fn process_amm_pool(
         return;
     };
 
-    // Prevent duplicate processing
     if !processed_pools.contains(&pool) {
         log::trace!("Got new pool {}", pool);
+
         let keys = get_keys_for_pool_exclusive(&pool, &data, program_id);
         let Ok(accounts) = rpc::get_multiple_account_data(rpc_client, &keys).await else {
             error!("Failed to get fetch accounts for amm pool {}", pool);
