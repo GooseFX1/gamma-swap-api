@@ -4,6 +4,8 @@
 
 - `cargo run use-grpc` to run in grpc-subscription mode. This requires a compulsory `GRPC_ADDR` value and optional `GRPC_X_TOKEN` value to be present in the env or passed as args instead with `addr` and `x-token` respectively.
 
+Disclaimer: Geyser functionality is currently untested.
+
 Flags include:
 - `[Required]` The Solana JsonRPC endpoint: `--rpc-url` or `RPC_URL` in env
 - `[Required]` The Amm config address: `--amm-config` or `AMM_CONFIG` in env
@@ -15,6 +17,7 @@ Flags include:
 ## Demo
 The package also includes a binary for making swaps with the http-api. First run the binary with the steps above and then `cargo run --bin swap` to make a mainnet swap for `0.01 SOL -> USDC`. This requires that a `keypair.json` file containing a funded wallet's keypair be present in the workspace root. 
 
-Note!!!: Low liquidity in Gamma pools atm might result in less output for your trade.
+Note!!!: Low liquidity in Gamma pools atm might result in a high price-impact and less output for your trades.
 
 Run `cargo run --bin quote` to only get and display quotes.
+

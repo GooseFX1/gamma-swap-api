@@ -20,7 +20,7 @@ pub async fn main() -> anyhow::Result<()> {
     let quote_request = QuoteRequest {
         input_mint: MINT_1,
         output_mint: MINT_2,
-        amount: 1_000_000_000,
+        amount: 1_000_000,
         swap_mode: Some(SwapMode::ExactIn),
         slippage_bps: 1000,
         platform_fee_bps: None,
