@@ -48,12 +48,6 @@ pub struct Opts {
     )]
     blockhash_poll_frequency_ms: Option<u64>,
 
-    #[clap(long, env, help = "URL to a hosted Jupiter price API endpoint")]
-    price_api_url: Option<String>,
-
-    #[clap(long, env, help = "How frequently to refresh market prices")]
-    price_refresh_frequency_ms: u64,
-
     #[clap(subcommand)]
     mode: Mode,
 }

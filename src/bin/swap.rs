@@ -35,7 +35,7 @@ pub async fn main() -> anyhow::Result<()> {
         .quote(&QuoteRequest {
             input_mint: MINT_1,
             output_mint: MINT_2,
-            amount: 100_000_000, // 0.1 SOL
+            amount: 10_000_000, // 0.01 SOL
             swap_mode: Some(SwapMode::ExactIn),
             slippage_bps: 1000,
             platform_fee_bps: None,

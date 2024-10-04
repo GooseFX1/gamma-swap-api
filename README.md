@@ -12,4 +12,9 @@ Flags include:
 - `[Required]` The server port configuration: `--port` or `PORT` in env
 - `[Required]` The blockhash poll frequency: `--blockhash-poll-frequency` or `BLOCKHASH_POLL_FREQUENCY` in env
 
+## Demo
+The package also includes a binary for making swaps with the http-api. First run the binary with the steps above and then `cargo run --bin swap` to make a mainnet swap for `0.01 SOL -> USDC`. This requires that a `keypair.json` file containing a funded wallet's keypair be present in the workspace root. 
 
+Note!!!: Low liquidity in Gamma pools atm might result in less output for your trade.
+
+Run `cargo run --bin quote` to only get and display quotes.
