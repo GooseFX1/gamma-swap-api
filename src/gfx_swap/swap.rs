@@ -227,18 +227,29 @@ impl GfxSwapClient {
                 );
             setup_instructions.push(create_ata_ix);
 
-            // Only unwrap SOL if destination-token-account is not specified and output-mint is SOL
-            if *wrap_and_unwrap_sol && req.quote_response.output_mint == spl_token::native_mint::ID
-            {
-                let close_ix = spl_token_2022::instruction::close_account(
-                    &output_token_program,
-                    &output_ata,
-                    &req.user_public_key,
-                    &req.user_public_key,
-                    &[],
-                )
-                .unwrap();
-                cleanup_instruction = Some(close_ix);
+            if *wrap_and_unwrap_sol {
+                let close_params = if req.quote_response.output_mint == spl_token::native_mint::ID {
+                    // Close output ata if destination-token-account was not specified and the output-mint is SOL
+                    Some((output_ata, output_token_program))
+                } else if req.quote_response.input_mint == spl_token::native_mint::ID {
+                    // Close the SOL ata since it was previously created
+                    Some((input_ata, input_token_program))
+                } else {
+                    None
+                };
+
+                if let Some((account, token_program)) = close_params {
+                    cleanup_instruction = Some(
+                        spl_token_2022::instruction::close_account(
+                            &token_program,
+                            &account,
+                            &req.user_public_key,
+                            &req.user_public_key,
+                            &[],
+                        )
+                        .unwrap(),
+                    )
+                }
             }
         }
 
