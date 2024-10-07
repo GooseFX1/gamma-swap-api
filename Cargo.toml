@@ -23,6 +23,7 @@ solana-client = "=1.18"
 solana-sdk = "=1.18"
 solana-account-decoder = "=1.18"
 solana-rpc-client-api = "=1.18"
+solana-program-runtime = "=1.18"
 thiserror = "1.0.63"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.4", features = ["cors"] }

@@ -13,11 +13,16 @@ use jupiter_swap_api_client::transaction_config::{
     ComputeUnitPriceMicroLamports, PrioritizationFeeLamports, TransactionConfig,
 };
 use rand::Rng;
+use solana_client::rpc_config::RpcSimulateTransactionConfig;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::hash::Hash;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::message::{Message, VersionedMessage};
 use solana_sdk::transaction::VersionedTransaction;
 use solana_sdk::{pubkey, pubkey::Pubkey};
 use thiserror::Error;
+
+pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 140_000;
 
 #[derive(Debug, Error)]
 pub enum SwapError {
@@ -25,6 +30,8 @@ pub enum SwapError {
     Accounts(#[from] AccountsError),
     #[error("Error deserializing anchor account: {0}")]
     Anchor(#[from] anchor_lang::error::Error),
+    #[error("RPC error: {0}")]
+    ClientError(#[from] solana_rpc_client_api::client_error::Error),
     #[error("{0}")]
     InvalidRequest(String),
     #[error(transparent)]
@@ -42,38 +49,15 @@ impl GfxSwapClient {
     }
 
     pub async fn swap_transaction(&self, req: &SwapRequest) -> Result<SwapResponse, SwapError> {
-        let mut final_instructions = Vec::new();
-        let SwapInstructionsResponse {
-            token_ledger_instruction: _,
-            compute_budget_instructions,
-            setup_instructions,
-            swap_instruction,
-            cleanup_instruction,
-            address_lookup_table_addresses: _,
-        } = self.swap_instructions_inner(req).await?;
-
-        final_instructions.extend(compute_budget_instructions);
-        final_instructions.extend(setup_instructions);
-        final_instructions.push(swap_instruction);
-        if let Some(cleanup_instruction) = cleanup_instruction {
-            final_instructions.push(cleanup_instruction);
-        }
-
-        let mut message = VersionedMessage::Legacy(Message::new(
-            &final_instructions,
-            Some(&req.user_public_key),
-        ));
-        let update = self.blockhash.read().await;
-        message.set_recent_blockhash(update.hash);
-        let versioned_tx = VersionedTransaction {
-            signatures: vec![],
-            message,
-        };
-        let swap_transaction = bincode::serialize(&versioned_tx)?;
+        let payer = &req.user_public_key;
+        let guard = self.blockhash.read().await;
+        let final_txn =
+            build_transaction(self.swap_instructions_inner(req).await?, guard.hash, payer);
+        let swap_transaction = bincode::serialize(&final_txn)?;
 
         Ok(SwapResponse {
             swap_transaction,
-            last_valid_block_height: update.last_valid_block_height,
+            last_valid_block_height: guard.last_valid_block_height,
         })
     }
 
@@ -82,14 +66,12 @@ impl GfxSwapClient {
         req: &SwapRequest,
     ) -> Result<SwapInstructionsResponse, SwapError> {
         // Currently ignored:
-        // - dynamic-compute-unit-limit
-        // - as-legacy-transaction
+        // - as-legacy-transaction. Since we only deal with a single route, txns are always legacy and use no lookup-tables
         // - use-shared-accounts
         // - use-token-ledger
         // - fee-account
         // - ComputeUnitMicroLamports::Auto
         // - PrioritizationFeeLamports::Auto, PrioritizationFeeLamports::AutoMultiplier
-        // - Since we only deal with a single route, transactions are always legacy and no lookup-tables are returned
 
         if req.quote_response.input_mint == req.quote_response.output_mint {
             return Err(SwapError::InvalidRequest(
@@ -290,7 +272,7 @@ impl GfxSwapClient {
             })
         };
         let swap_instruction = Instruction::new_with_bytes(self.gamma_program_id, &data, accounts);
-        let swap_instructions = SwapInstructionsResponse {
+        let mut instructions = SwapInstructionsResponse {
             token_ledger_instruction,
             compute_budget_instructions,
             setup_instructions,
@@ -299,7 +281,64 @@ impl GfxSwapClient {
             address_lookup_table_addresses: vec![],
         };
 
-        Ok(swap_instructions)
+        let dynamic_compute = if req.config.dynamic_compute_unit_limit {
+            let simulate_txn = build_transaction(
+                instructions.clone(),
+                self.blockhash.read().await.hash,
+                &req.user_public_key,
+            );
+            let result = self
+                .solana_rpc
+                .simulate_transaction_with_config(
+                    &simulate_txn,
+                    RpcSimulateTransactionConfig {
+                        sig_verify: false,
+                        replace_recent_blockhash: false,
+                        commitment: Some(CommitmentConfig::confirmed()),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+            result.value.units_consumed.and_then(|compute_units| u32::try_from(compute_units).ok()?.checked_add(50_000)) // Add 50k more CUs for safety
+        } else {
+            None
+        };
+        let compute_units = dynamic_compute.unwrap_or(MAX_COMPUTE_UNIT_LIMIT);
+        instructions.compute_budget_instructions.push(
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
+                compute_units,
+            ),
+        );
+
+        Ok(instructions)
+    }
+}
+
+fn build_transaction(
+    instructions: SwapInstructionsResponse,
+    blockhash: Hash,
+    payer: &Pubkey,
+) -> VersionedTransaction {
+    let mut final_instructions = Vec::new();
+    let SwapInstructionsResponse {
+        token_ledger_instruction: _,
+        compute_budget_instructions,
+        setup_instructions,
+        swap_instruction,
+        cleanup_instruction,
+        address_lookup_table_addresses: _,
+    } = instructions;
+    final_instructions.extend(compute_budget_instructions);
+    final_instructions.extend(setup_instructions);
+    final_instructions.push(swap_instruction);
+    if let Some(cleanup_instruction) = cleanup_instruction {
+        final_instructions.push(cleanup_instruction);
+    }
+    let mut message = VersionedMessage::Legacy(Message::new(&final_instructions, Some(payer)));
+    message.set_recent_blockhash(blockhash);
+    VersionedTransaction {
+        signatures: vec![],
+        message,
     }
 }
 
@@ -314,7 +353,7 @@ const JITO_TIP_ACCOUNTS: [Pubkey; 8] = [
     pubkey!("3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"),
 ];
 
-pub fn build_jito_tip_ix(from: &Pubkey, tip: u64) -> Instruction {
+fn build_jito_tip_ix(from: &Pubkey, tip: u64) -> Instruction {
     let random_recipient =
         &JITO_TIP_ACCOUNTS[rand::thread_rng().gen_range(0..JITO_TIP_ACCOUNTS.len())];
     solana_sdk::system_instruction::transfer(from, random_recipient, tip)

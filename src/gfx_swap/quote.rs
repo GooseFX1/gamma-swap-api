@@ -28,7 +28,7 @@ pub enum QuoteError {
     Unpack(#[from] ProgramError),
     #[error("Error deserializing anchor account: {0}")]
     Anchor(#[from] anchor_lang::error::Error),
-    #[error("Client error: {0}")]
+    #[error("RPC error: {0}")]
     ClientError(#[from] solana_rpc_client_api::client_error::Error),
     #[error("Failed calculating swap quote")]
     SwapCalculation,
