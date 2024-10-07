@@ -18,11 +18,10 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::hash::Hash;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::message::{Message, VersionedMessage};
+use solana_sdk::signature::Signature;
 use solana_sdk::transaction::VersionedTransaction;
 use solana_sdk::{pubkey, pubkey::Pubkey};
 use thiserror::Error;
-
-pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 140_000;
 
 #[derive(Debug, Error)]
 pub enum SwapError {
@@ -49,15 +48,17 @@ impl GfxSwapClient {
     }
 
     pub async fn swap_transaction(&self, req: &SwapRequest) -> Result<SwapResponse, SwapError> {
-        let payer = &req.user_public_key;
-        let guard = self.blockhash.read().await;
-        let final_txn =
-            build_transaction(self.swap_instructions_inner(req).await?, guard.hash, payer);
-        let swap_transaction = bincode::serialize(&final_txn)?;
+        let blockhash_update = self.blockhash.read().await;
+        let instructions = self.swap_instructions_inner(req).await?;
+        let transaction = build_transaction(
+            instructions,
+            Some(&req.user_public_key),
+            Some(blockhash_update.hash),
+        );
 
         Ok(SwapResponse {
-            swap_transaction,
-            last_valid_block_height: guard.last_valid_block_height,
+            swap_transaction: bincode::serialize(&transaction)?,
+            last_valid_block_height: blockhash_update.last_valid_block_height,
         })
     }
 
@@ -194,6 +195,16 @@ impl GfxSwapClient {
                 let sync_ix =
                     spl_token::instruction::sync_native(&spl_token::ID, &input_ata).unwrap();
                 setup_instructions.extend([transfer_ix, sync_ix]);
+
+                let close_ix = spl_token_2022::instruction::close_account(
+                    &spl_token::ID,
+                    &input_ata,
+                    &req.user_public_key,
+                    &req.user_public_key,
+                    &[],
+                )
+                .unwrap();
+                cleanup_instruction = Some(close_ix);
             }
         }
 
@@ -209,29 +220,18 @@ impl GfxSwapClient {
                 );
             setup_instructions.push(create_ata_ix);
 
-            if *wrap_and_unwrap_sol {
-                let close_params = if req.quote_response.output_mint == spl_token::native_mint::ID {
-                    // Close output ata if destination-token-account was not specified and the output-mint is SOL
-                    Some((output_ata, output_token_program))
-                } else if req.quote_response.input_mint == spl_token::native_mint::ID {
-                    // Close the SOL ata since it was previously created
-                    Some((input_ata, input_token_program))
-                } else {
-                    None
-                };
-
-                if let Some((account, token_program)) = close_params {
-                    cleanup_instruction = Some(
-                        spl_token_2022::instruction::close_account(
-                            &token_program,
-                            &account,
-                            &req.user_public_key,
-                            &req.user_public_key,
-                            &[],
-                        )
-                        .unwrap(),
+            if *wrap_and_unwrap_sol && req.quote_response.output_mint == spl_token::native_mint::ID
+            {
+                cleanup_instruction = Some(
+                    spl_token_2022::instruction::close_account(
+                        &output_token_program,
+                        &output_ata,
+                        &req.user_public_key,
+                        &req.user_public_key,
+                        &[],
                     )
-                }
+                    .unwrap(),
+                )
             }
         }
 
@@ -281,34 +281,35 @@ impl GfxSwapClient {
             address_lookup_table_addresses: vec![],
         };
 
-        let dynamic_compute = if req.config.dynamic_compute_unit_limit {
-            let simulate_txn = build_transaction(
-                instructions.clone(),
-                self.blockhash.read().await.hash,
-                &req.user_public_key,
+        let dynamic_compute =
+            if req.config.dynamic_compute_unit_limit {
+                let simulate_txn =
+                    build_transaction(instructions.clone(), Some(&req.user_public_key), None);
+                let result = self
+                    .solana_rpc
+                    .simulate_transaction_with_config(
+                        &simulate_txn,
+                        RpcSimulateTransactionConfig {
+                            sig_verify: false,
+                            replace_recent_blockhash: true,
+                            commitment: Some(CommitmentConfig::confirmed()),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                result.value.units_consumed.and_then(|compute_units| {
+                    u32::try_from(compute_units).ok()?.checked_add(50_000)
+                }) // Add 50k more CUs for safety
+            } else {
+                None
+            };
+        if let Some(compute_units) = dynamic_compute {
+            instructions.compute_budget_instructions.push(
+                solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
+                    compute_units,
+                ),
             );
-            let result = self
-                .solana_rpc
-                .simulate_transaction_with_config(
-                    &simulate_txn,
-                    RpcSimulateTransactionConfig {
-                        sig_verify: false,
-                        replace_recent_blockhash: false,
-                        commitment: Some(CommitmentConfig::confirmed()),
-                        ..Default::default()
-                    },
-                )
-                .await?;
-            result.value.units_consumed.and_then(|compute_units| u32::try_from(compute_units).ok()?.checked_add(50_000)) // Add 50k more CUs for safety
-        } else {
-            None
-        };
-        let compute_units = dynamic_compute.unwrap_or(MAX_COMPUTE_UNIT_LIMIT);
-        instructions.compute_budget_instructions.push(
-            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
-                compute_units,
-            ),
-        );
+        }
 
         Ok(instructions)
     }
@@ -316,8 +317,8 @@ impl GfxSwapClient {
 
 fn build_transaction(
     instructions: SwapInstructionsResponse,
-    blockhash: Hash,
-    payer: &Pubkey,
+    payer: Option<&Pubkey>,
+    blockhash: Option<Hash>,
 ) -> VersionedTransaction {
     let mut final_instructions = Vec::new();
     let SwapInstructionsResponse {
@@ -334,10 +335,12 @@ fn build_transaction(
     if let Some(cleanup_instruction) = cleanup_instruction {
         final_instructions.push(cleanup_instruction);
     }
-    let mut message = VersionedMessage::Legacy(Message::new(&final_instructions, Some(payer)));
-    message.set_recent_blockhash(blockhash);
+    let mut message = VersionedMessage::Legacy(Message::new(&final_instructions, payer));
+    if let Some(hash) = blockhash {
+        message.set_recent_blockhash(hash);
+    }
     VersionedTransaction {
-        signatures: vec![],
+        signatures: vec![Signature::default()],
         message,
     }
 }

@@ -60,7 +60,7 @@ pub async fn main() -> anyhow::Result<()> {
                 100_000,
             )),
             prioritization_fee_lamports: None,
-            dynamic_compute_unit_limit: false,
+            dynamic_compute_unit_limit: true,
             as_legacy_transaction: false,
             use_shared_accounts: false,
             use_token_ledger: false,
@@ -69,6 +69,7 @@ pub async fn main() -> anyhow::Result<()> {
 
     let response = client.swap(&swap_request).await?;
     let tx = bincode::deserialize::<VersionedTransaction>(&response.swap_transaction)?;
+    log::info!("Signatures: {:#?}", tx.signatures);
     let tx = VersionedTransaction::try_new(tx.message, &[&keypair])?;
 
     let signature = rpc_client

@@ -29,12 +29,9 @@ pub async fn bootstrap_accounts_service(
     let mut pools = rpc::get_multiple_account_data(&rpc_client, &pool_keys).await?;
     let config_data = pools.pop();
     match config_data {
-        Some((pubkey, data)) if pubkey == config && data.is_some() => {
+        Some((pubkey, Some(data))) if pubkey == config => {
             accounts_store
-                .add_or_update_account(AccountUpdate {
-                    pubkey,
-                    data: data.unwrap(),
-                })
+                .add_or_update_account(AccountUpdate { pubkey, data })
                 .await;
         }
         _ => {

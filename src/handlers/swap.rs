@@ -1,7 +1,6 @@
 use crate::gfx_swap::swap::SwapError;
 use crate::gfx_swap::GfxSwapClient;
 use crate::handlers::{ApiResponse, ErrorResponse};
-use std::sync::Arc;
 
 use axum::{
     extract::{Json, State},
@@ -11,7 +10,7 @@ use jupiter_swap_api_client::swap::{SwapInstructionsResponseInternal, SwapReques
 use log::error;
 
 pub async fn swap_instructions(
-    State(gfx_swap): State<Arc<GfxSwapClient>>,
+    State(gfx_swap): State<GfxSwapClient>,
     Json(params): Json<SwapRequest>,
 ) -> (
     StatusCode,
@@ -36,7 +35,7 @@ pub async fn swap_instructions(
 }
 
 pub async fn swap_transaction(
-    State(gfx_swap): State<Arc<GfxSwapClient>>,
+    State(gfx_swap): State<GfxSwapClient>,
     Json(params): Json<SwapRequest>,
 ) -> (StatusCode, Json<ApiResponse<SwapResponse>>) {
     match gfx_swap.swap_transaction(&params).await {

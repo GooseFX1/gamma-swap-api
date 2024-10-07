@@ -146,13 +146,13 @@ async fn main() -> anyhow::Result<()> {
     .await?;
     tasks.push(account_service_task);
 
-    let gfx_swap = Arc::new(GfxSwapClient {
+    let gfx_swap = GfxSwapClient {
         solana_rpc: Arc::clone(&rpc_client),
         accounts_service,
         gamma_config: opts.amm_config,
         gamma_program_id: opts.amm_program_id,
         blockhash,
-    });
+    };
     let socket_addr = format!("{}:{}", opts.host, opts.port).parse::<SocketAddr>()?;
 
     let app = Router::new()

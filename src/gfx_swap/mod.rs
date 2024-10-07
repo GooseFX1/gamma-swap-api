@@ -9,6 +9,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use tokio::sync::RwLock;
 
+#[derive(Clone)]
 pub struct GfxSwapClient {
     /// Solana RPC client
     pub solana_rpc: Arc<RpcClient>,
