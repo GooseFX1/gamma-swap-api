@@ -3,6 +3,7 @@ pub mod swap;
 
 use crate::accounts::service::AccountsService;
 use crate::blockhash_polling::RecentBlockhash;
+use crate::priofee::PrioFeesHandle;
 use std::sync::Arc;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -21,4 +22,6 @@ pub struct GfxSwapClient {
     pub gamma_program_id: Pubkey,
     /// Handle for getting latest blockhash
     pub blockhash: Arc<RwLock<RecentBlockhash>>,
+    /// Handle for getting latest priority fees
+    pub priofees_handle: Option<PrioFeesHandle>,
 }

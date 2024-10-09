@@ -8,6 +8,7 @@ use axum::{
 use blockhash_polling::{get_blockhash_data_with_retry, start_blockhash_polling_task};
 use clap::Parser;
 use gfx_swap::GfxSwapClient;
+use priofee::start_priofees_task;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
@@ -21,6 +22,7 @@ mod accounts;
 mod blockhash_polling;
 mod gfx_swap;
 mod handlers;
+mod priofee;
 mod utils;
 
 #[derive(Debug, Parser)]
@@ -48,6 +50,19 @@ pub struct Opts {
     )]
     blockhash_poll_frequency_ms: Option<u64>,
 
+    #[clap(long, env, help = "The URL to make priority fee requests to")]
+    priofee_url: Option<String>,
+
+    #[clap(
+        long,
+        env,
+        help = "How many blocks to consider for priority-fee averages"
+    )]
+    priofee_n_blocks: Option<u16>,
+
+    #[clap(long, env, help = "How frequently to update the priority fee response")]
+    priofee_poll_frequency_secs: Option<u64>,
+
     #[clap(subcommand)]
     mode: Mode,
 }
@@ -61,9 +76,9 @@ enum Mode {
         x_token: Option<String>,
     },
     UseRpc {
-        #[clap(long, env = "RPC_NEW_POOLS_FREQUENCY")]
+        #[clap(long, env = "RPC_NEW_POOLS_FREQUENCY_SECS")]
         gpa_poll_frequency_seconds: u64,
-        #[clap(long, env = "RPC_ACCOUNT_REFRESH_FREQUENCY")]
+        #[clap(long, env = "RPC_ACCOUNT_REFRESH_FREQUENCY_SECS")]
         refresh_frequency_seconds: u64,
     },
 }
@@ -87,6 +102,21 @@ async fn main() -> anyhow::Result<()> {
         opts.blockhash_poll_frequency_ms.map(Duration::from_millis),
     );
     tasks.push(blockhash_task);
+
+    let priofees_handle = match opts.priofee_url {
+        Some(url) => {
+            let (handle, task) = start_priofees_task(
+                url,
+                opts.priofee_n_blocks,
+                Some(opts.amm_program_id.to_string()),
+                opts.priofee_poll_frequency_secs.map(Duration::from_secs),
+            )
+            .await?;
+            tasks.push(task);
+            Some(handle)
+        }
+        None => None,
+    };
 
     let store = Arc::new(accounts::MemStore::default());
     let (amm_pools, amm_pools_task, accounts_store, accounts_updater_task) = match opts.mode {
@@ -152,6 +182,7 @@ async fn main() -> anyhow::Result<()> {
         gamma_config: opts.amm_config,
         gamma_program_id: opts.amm_program_id,
         blockhash,
+        priofees_handle,
     };
     let socket_addr = format!("{}:{}", opts.host, opts.port).parse::<SocketAddr>()?;
 
