@@ -30,8 +30,6 @@ pub enum QuoteError {
     Anchor(#[from] anchor_lang::error::Error),
     #[error("RPC error: {0}")]
     ClientError(#[from] solana_rpc_client_api::client_error::Error),
-    #[error("Failed calculating swap quote")]
-    SwapCalculation,
     #[error("{0}")]
     InvalidRequest(String),
     #[error("No pool exists for this input-mint - output-mint pair")]
@@ -100,7 +98,7 @@ impl GfxSwapClient {
         let (total_token_0_amount, total_token_1_amount) = pool_state.vault_amount_without_fee(
             token_0_vault_info.base.amount,
             token_1_vault_info.base.amount,
-        );
+        )?;
 
         let (
             trade_direction,
@@ -147,7 +145,6 @@ impl GfxSwapClient {
                 amm_config.protocol_fee_rate,
                 amm_config.fund_fee_rate,
                 current_unix_timestamp,
-                &pool_state,
                 &observation_state,
                 trade_direction,
             )
@@ -160,12 +157,10 @@ impl GfxSwapClient {
                 amm_config.protocol_fee_rate,
                 amm_config.fund_fee_rate,
                 current_unix_timestamp,
-                &pool_state,
                 &observation_state,
                 trade_direction,
             )
-        }
-        .ok_or(QuoteError::SwapCalculation)?;
+        }?;
 
         let other_amount = u64::try_from(if base_in {
             swap_result.destination_amount_swapped

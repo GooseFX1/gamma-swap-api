@@ -14,7 +14,8 @@ bincode = "1.3.3"
 dotenv = "0.15.0"
 env_logger = "0.11.5"
 jupiter-swap-api-client = { git = "https://github.com/GooseFX1/jupiter-swap-api-client.git", branch = "patch/0.1.0" }
-gamma = { git = "https://github.com/GooseFX1/gamma-swap.git", rev = "24f90c58d63504c4c5400130e0e6f5e80fa89700" }
+#gamma = { git = "https://github.com/GooseFX1/gamma-swap.git", rev = "24f90c58d63504c4c5400130e0e6f5e80fa89700" }
+gamma = { git = "https://github.com/GooseFX1/gamma-swap.git", rev = "a6bef2c578803fc7ee0b114f9283e4ae1b60f9f8" }
 log = "0.4.22"
 reqwest = { version = "0.11.27", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }

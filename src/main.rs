@@ -63,6 +63,12 @@ pub struct Opts {
     #[clap(long, env, help = "How frequently to update the priority fee response")]
     priofee_poll_frequency_secs: Option<u64>,
 
+    #[clap(long, env, help = "The referral account, if that feature is enabled")]
+    referral_account: Option<Pubkey>,
+
+    #[clap(long, env, help = "The referral program")]
+    referral_program: Option<Pubkey>,
+
     #[clap(subcommand)]
     mode: Mode,
 }
@@ -183,6 +189,8 @@ async fn main() -> anyhow::Result<()> {
         gamma_program_id: opts.amm_program_id,
         blockhash,
         priofees_handle,
+        referral: opts.referral_account,
+        referral_program: opts.referral_program,
     };
     let socket_addr = format!("{}:{}", opts.host, opts.port).parse::<SocketAddr>()?;
 

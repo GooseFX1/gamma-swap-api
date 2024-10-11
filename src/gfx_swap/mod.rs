@@ -24,4 +24,8 @@ pub struct GfxSwapClient {
     pub blockhash: Arc<RwLock<RecentBlockhash>>,
     /// Handle for getting latest priority fees
     pub priofees_handle: Option<PrioFeesHandle>,
+    /// The referral account
+    pub referral: Option<Pubkey>,
+    /// The referral program
+    pub referral_program: Option<Pubkey>,
 }

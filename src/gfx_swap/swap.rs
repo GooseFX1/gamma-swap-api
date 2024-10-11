@@ -2,9 +2,10 @@ use super::GfxSwapClient;
 use crate::accounts::{AccountsError, AccountsGetter};
 use crate::utils::{derive_authority_pda, derive_pool_pda};
 
+use anchor_lang::prelude::AccountMeta;
 use anchor_lang::AccountDeserialize;
 use gamma::curve::TradeDirection;
-use gamma::states::PoolState;
+use gamma::states::{AmmConfig, PoolState};
 use jupiter_swap_api_client::quote::SwapMode;
 use jupiter_swap_api_client::swap::{
     SwapInstructionsResponse, SwapInstructionsResponseInternal, SwapRequest, SwapResponse,
@@ -27,9 +28,10 @@ use thiserror::Error;
 const DEFAULT_INSTRUCTION_COMPUTE_UNIT: u32 = 200_000;
 /// Protocol defined: There are 10^6 micro-lamports in one lamport
 const MICRO_LAMPORTS_PER_LAMPORT: u64 = 1_000_000;
-
 /// The cap we set on auto priority-fees
 const MAX_AUTO_PRIORITY_FEE_LAMPORTS: u64 = 5_000_000;
+/// ID of the referral program
+const REFERRAL_PROGRAM_MAINNET: Pubkey = pubkey!("REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3");
 
 #[derive(Debug, Error)]
 pub enum SwapError {
@@ -120,6 +122,11 @@ impl GfxSwapClient {
         );
         let pool_account = self.accounts_service.get_account(&pool).await?;
         let pool_state = PoolState::try_deserialize(&mut &pool_account[..])?;
+        let config_account = self
+            .accounts_service
+            .get_account(&self.gamma_config)
+            .await?;
+        let amm_config = AmmConfig::try_deserialize(&mut &config_account[..])?;
 
         let trade_direction = if req.quote_response.input_mint == token_0_mint {
             TradeDirection::ZeroForOne
@@ -231,7 +238,7 @@ impl GfxSwapClient {
             SwapMode::ExactOut => false,
         };
 
-        let accounts = anchor_lang::ToAccountMetas::to_account_metas(
+        let mut accounts = anchor_lang::ToAccountMetas::to_account_metas(
             &gamma::accounts::Swap {
                 payer: req.user_public_key,
                 authority: derive_authority_pda(&self.gamma_program_id).0,
@@ -249,6 +256,24 @@ impl GfxSwapClient {
             },
             None,
         );
+        if let Some(referral_account) = self.referral {
+            let referral_program = self.referral_program.unwrap_or(REFERRAL_PROGRAM_MAINNET);
+            let referral_token_account = Pubkey::find_program_address(
+                &[
+                    b"referral_ata",
+                    referral_account.as_ref(),
+                    input_token_mint.as_ref(),
+                ],
+                &referral_program,
+            )
+            .0;
+            accounts.extend([
+                AccountMeta::new_readonly(amm_config.referral_project, false),
+                AccountMeta::new_readonly(referral_account, false),
+                AccountMeta::new(referral_token_account, false),
+            ]);
+        }
+
         let data = if base_in {
             anchor_lang::InstructionData::data(&gamma::instruction::SwapBaseInput {
                 amount_in: req.quote_response.in_amount,

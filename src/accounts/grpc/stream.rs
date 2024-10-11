@@ -249,6 +249,7 @@ fn grpc_accounts_updater_task_inner(
                                     "GRPC account-updater: Got account update for {}",
                                     pubkey
                                 );
+
                                 let _ = store
                                     .add_or_update_account(AccountUpdate {
                                         pubkey,

@@ -852,7 +852,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115e54d64eb62cdebad391c19efc9dce4981c690c85a33a12199d99bb9546fee"
 dependencies = [
  "borsh-derive 0.10.4",
- "hashbrown 0.13.2",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -1907,10 +1907,11 @@ dependencies = [
 [[package]]
 name = "gamma"
 version = "0.1.0"
-source = "git+https://github.com/GooseFX1/gamma-swap.git?rev=24f90c58d63504c4c5400130e0e6f5e80fa89700#24f90c58d63504c4c5400130e0e6f5e80fa89700"
+source = "git+https://github.com/GooseFX1/gamma-swap.git?rev=a6bef2c578803fc7ee0b114f9283e4ae1b60f9f8#a6bef2c578803fc7ee0b114f9283e4ae1b60f9f8"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "referral",
  "solana-security-txt",
  "spl-math",
  "spl-memo",
@@ -3507,6 +3508,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b6dfecf2c74bce2466cabf93f6664d6998a69eb21e39f4207930065b27b771f"
 dependencies = [
  "bitflags 2.6.0",
+]
+
+[[package]]
+name = "referral"
+version = "0.1.0"
+source = "git+https://github.com/GooseFX1/referral.git?branch=patch#597d38768dddb0c5de4e586b1e2ff151e92bb72e"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
 ]
 
 [[package]]
@@ -6122,7 +6132,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
