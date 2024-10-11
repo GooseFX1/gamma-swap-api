@@ -204,7 +204,7 @@ async fn main() -> anyhow::Result<()> {
         .with_state(gfx_swap)
         .layer(CorsLayer::permissive());
 
-    println!("Gamma Swap API running on {}", socket_addr);
+    log::info!("Gamma Swap API running on {}", socket_addr);
     axum::Server::bind(&socket_addr)
         .serve(app.into_make_service())
         .await

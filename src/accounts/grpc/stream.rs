@@ -76,12 +76,12 @@ pub fn grpc_amm_pools_task(
                     ..Default::default()
                 };
 
-                log::debug!("Connecting to GRPC, endpoint={}", grpc_endpoint);
+                log::trace!("Connecting to GRPC, endpoint={}", grpc_endpoint);
                 let mut client =
                     grpc::create_grpc_connection(&grpc_endpoint, &grpc_x_token).await?;
-                log::debug!("Connection complete, sending subscribe request");
+                log::trace!("Connection complete, sending subscribe request");
                 let mut account_stream = client.subscribe_once(program_subscription).await.unwrap();
-                log::debug!("Sent subscribe-request successfully");
+                log::trace!("Sent subscribe-request successfully");
 
                 while let Some(message) = account_stream.next().await {
                     if message.is_err() {
@@ -98,7 +98,10 @@ pub fn grpc_amm_pools_task(
                             if let Some(account) = update.account {
                                 let pubkey =
                                     Pubkey::new_from_array(account.pubkey[0..32].try_into()?);
-                                log::debug!("GRPC program suscription: Got new account {}", pubkey);
+                                log::trace!(
+                                    "GRPC program subscription: Got new account {}",
+                                    pubkey
+                                );
                                 if new_accounts_sender
                                     .send((pubkey, account.data))
                                     .await
@@ -245,7 +248,7 @@ fn grpc_accounts_updater_task_inner(
                             if let Some(account) = update.account {
                                 let pubkey =
                                     Pubkey::new_from_array(account.pubkey[0..32].try_into()?);
-                                log::debug!(
+                                log::trace!(
                                     "GRPC account-updater: Got account update for {}",
                                     pubkey
                                 );

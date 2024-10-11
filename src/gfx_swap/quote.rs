@@ -95,10 +95,17 @@ impl GfxSwapClient {
             SwapMode::ExactOut => false,
         };
 
+        log::debug!("Token0 vault amount: {}", token_0_vault_info.base.amount);
+        log::debug!("Token1 vault amount: {}", token_1_vault_info.base.amount);
         let (total_token_0_amount, total_token_1_amount) = pool_state.vault_amount_without_fee(
             token_0_vault_info.base.amount,
             token_1_vault_info.base.amount,
         )?;
+
+        // 2024-10-11T00:29:45Z DEBUG gamma_swap_api::gfx_swap::quote] Token0 vault amount: 676393783
+        // [2024-10-11T00:29:45Z DEBUG gamma_swap_api::gfx_swap::quote] Token1 vault amount: 37101269
+        // [2024-10-11T00:30:24Z DEBUG gamma_swap_api::gfx_swap::quote] Token0 vault amount: 686393783
+        // [2024-10-11T00:30:24Z DEBUG gamma_swap_api::gfx_swap::quote] Token1 vault amount: 36575361
 
         let (
             trade_direction,

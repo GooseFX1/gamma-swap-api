@@ -21,7 +21,7 @@ pub async fn bootstrap_accounts_service(
     let mut processed_pools = HashSet::<Pubkey>::new();
     let mut pool_keys = rpc::get_amm_pool_pubkeys(&rpc_client, &config, &program_id).await?;
     log::debug!(
-        "Bootstrapped accounts service with data for {} pools",
+        "Bootstrapping accounts service with data for {} pools",
         pool_keys.len()
     );
     pool_keys.push(config);
@@ -60,12 +60,12 @@ pub async fn bootstrap_accounts_service(
 
     let task = tokio::task::spawn({
         let rpc_client = Arc::clone(&rpc_client);
-        let mut processed_pools = HashSet::<Pubkey>::new();
+        let mut pool_set = processed_pools;
         let accounts_store = Arc::clone(&accounts_store);
         async move {
             while let Some((pool, pool_data)) = amm_pools.next().await {
                 process_amm_pool(
-                    &mut processed_pools,
+                    &mut pool_set,
                     Arc::clone(&accounts_store),
                     &rpc_client,
                     &program_id,
@@ -91,42 +91,41 @@ async fn process_amm_pool(
     pool: Pubkey,
     pool_data: Vec<u8>,
 ) {
+    if processed_pools.contains(&pool) {
+        return;
+    }
+    log::debug!("Got new pool {}", pool);
     let Some(data) = PoolSlice::decode(&pool_data, None) else {
         error!("Failed to decode pool slice for amm pool {}", pool);
         return;
     };
 
-    if !processed_pools.contains(&pool) {
-        log::trace!("Got new pool {}", pool);
-
-        let keys = get_keys_for_pool_exclusive(&pool, &data, program_id);
-        let Ok(accounts) = rpc::get_multiple_account_data(rpc_client, &keys).await else {
-            error!("Failed to get fetch accounts for amm pool {}", pool);
-            return;
+    let keys = get_keys_for_pool_exclusive(&pool, &data, program_id);
+    let Ok(accounts) = rpc::get_multiple_account_data(rpc_client, &keys).await else {
+        error!("Failed to get fetch accounts for amm pool {}", pool);
+        return;
+    };
+    _ = processed_pools.insert(pool);
+    accounts_store
+        .add_or_update_account(AccountUpdate {
+            pubkey: pool,
+            data: pool_data,
+        })
+        .await;
+    for (pubkey, account) in accounts.into_iter() {
+        let Some(data) = account else {
+            // this should be unreachable
+            error!(
+                "Got null account data from RPC. pool={}. account={}",
+                pool, pubkey
+            );
+            continue;
         };
-        _ = processed_pools.insert(pool);
-
         accounts_store
-            .add_or_update_account(AccountUpdate {
-                pubkey: pool,
-                data: pool_data,
-            })
+            .add_or_update_account(AccountUpdate { pubkey, data })
             .await;
-
-        for (pubkey, account) in accounts.into_iter() {
-            let Some(data) = account else {
-                // this should be unreachable
-                error!(
-                    "Got null account data from RPC. pool={}. account={}",
-                    pool, pubkey
-                );
-                continue;
-            };
-            accounts_store
-                .add_or_update_account(AccountUpdate { pubkey, data })
-                .await;
-        }
     }
+    processed_pools.insert(pool);
 }
 
 #[derive(Clone)]
