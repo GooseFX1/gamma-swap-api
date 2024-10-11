@@ -84,12 +84,12 @@ pub fn grpc_amm_pools_task(
                 log::trace!("Sent subscribe-request successfully");
 
                 while let Some(message) = account_stream.next().await {
-                    if message.is_err() {
+                    let Ok(message) = message else {
                         // disconnected. retry the main loop and connect again
                         break;
-                    }
+                    };
 
-                    let Some(update) = message.unwrap().update_oneof else {
+                    let Some(update) = message.update_oneof else {
                         continue;
                     };
 
@@ -232,12 +232,12 @@ fn grpc_accounts_updater_task_inner(
                     .await?;
 
                 while let Some(message) = stream.next().await {
-                    if message.is_err() {
+                    let Ok(message) = message else {
                         // disconnected. retry the main loop and connect again
                         break;
-                    }
+                    };
 
-                    let Some(update) = message.unwrap().update_oneof else {
+                    let Some(update) = message.update_oneof else {
                         continue;
                     };
 

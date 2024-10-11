@@ -102,11 +102,6 @@ impl GfxSwapClient {
             token_1_vault_info.base.amount,
         )?;
 
-        // 2024-10-11T00:29:45Z DEBUG gamma_swap_api::gfx_swap::quote] Token0 vault amount: 676393783
-        // [2024-10-11T00:29:45Z DEBUG gamma_swap_api::gfx_swap::quote] Token1 vault amount: 37101269
-        // [2024-10-11T00:30:24Z DEBUG gamma_swap_api::gfx_swap::quote] Token0 vault amount: 686393783
-        // [2024-10-11T00:30:24Z DEBUG gamma_swap_api::gfx_swap::quote] Token1 vault amount: 36575361
-
         let (
             trade_direction,
             total_input_token_amount,

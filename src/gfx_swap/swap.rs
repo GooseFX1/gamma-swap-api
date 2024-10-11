@@ -188,8 +188,8 @@ impl GfxSwapClient {
                     &input_ata,
                     req.quote_response.in_amount,
                 );
-                let sync_ix =
-                    spl_token::instruction::sync_native(&spl_token::ID, &input_ata).unwrap();
+                let sync_ix = spl_token::instruction::sync_native(&spl_token::ID, &input_ata)
+                    .expect("spl_token::ID is valid");
                 setup_instructions.extend([transfer_ix, sync_ix]);
 
                 let close_ix = spl_token_2022::instruction::close_account(
@@ -199,7 +199,7 @@ impl GfxSwapClient {
                     &req.user_public_key,
                     &[],
                 )
-                .unwrap();
+                .expect("spl_token::ID is valid");
                 cleanup_instruction = Some(close_ix);
             }
         }
@@ -226,7 +226,7 @@ impl GfxSwapClient {
                         &req.user_public_key,
                         &[],
                     )
-                    .unwrap(),
+                    .expect("spl_token::ID is valid"),
                 )
             }
         }

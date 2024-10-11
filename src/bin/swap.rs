@@ -69,7 +69,6 @@ pub async fn main() -> anyhow::Result<()> {
 
     let response = client.swap(&swap_request).await?;
     let tx = bincode::deserialize::<VersionedTransaction>(&response.swap_transaction)?;
-    log::info!("Signatures: {:#?}", tx.signatures);
     let tx = VersionedTransaction::try_new(tx.message, &[&keypair])?;
 
     let signature = rpc_client
