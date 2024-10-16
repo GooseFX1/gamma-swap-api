@@ -87,24 +87,19 @@ pub async fn qn_priority_fee_request(
     if let Some(result) = json.get_mut("result").map(|res| res.take()) {
         Ok(serde_json::from_value(result)?)
     } else if let Some(error) = json.get_mut("error").map(|err| err.take()) {
-        let error = serde_json::from_value::<Error>(error)?;
-        Err(anyhow!(
-            "qn_estimatePriorityFees error: {}: {}",
-            error.message,
-            error.data
-        ))
+        Err(anyhow!("qn_estimatePriorityFees error: {}", error))
     } else {
         Err(anyhow!("qn_estimatePriorityFees error: Invalid response"))
     }
 }
 
-#[derive(Clone, Deserialize, Debug)]
-struct Error {
-    #[allow(unused)]
-    code: i32,
-    message: String,
-    data: String,
-}
+// #[derive(Clone, Deserialize, Debug)]
+// struct Error {
+//     #[allow(unused)]
+//     code: i32,
+//     message: String,
+//     data: String,
+// }
 
 #[derive(Copy, Clone, Deserialize, Debug)]
 pub struct QnPriofee {
