@@ -2,7 +2,7 @@ use clap::Parser;
 use jupiter_swap_api_client::{
     quote::{QuoteRequest, SwapMode},
     swap::SwapRequest,
-    transaction_config::{ComputeUnitPriceMicroLamports, TransactionConfig},
+    transaction_config::{PrioritizationFeeLamports, TransactionConfig},
     JupiterSwapApiClient,
 };
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
@@ -14,18 +14,21 @@ use solana_sdk::{
 
 #[derive(Parser)]
 pub struct Config {
+    /// The host of the api server to connect to
     #[clap(long, env = "HOST")]
     server_host: String,
+    /// The port of the api server to connect to
     #[clap(long, env = "PORT")]
     server_port: String,
+    /// The input mint for the swap
     #[clap(long, env)]
     input_mint: Pubkey,
+    /// The output mint for the swap
     #[clap(long, env)]
     output_mint: Pubkey,
+    /// The amount provided for the swap
     #[clap(long, env)]
     amount: u64,
-    #[clap(long, env = "KEYPAIR_PATH", default_value = "keypair.json")]
-    keypair_path: String,
 }
 
 #[tokio::main]
@@ -36,6 +39,7 @@ pub async fn main() -> anyhow::Result<()> {
     let opts = Config::parse();
     let keypair =
         solana_sdk::signature::Keypair::read_from_file("keypair.json").expect("No keypair file");
+    log::info!("pubkey: {}", keypair.pubkey());
     let base_path = format!("http://{}:{}", opts.server_host, opts.server_port);
     let rpc_client = RpcClient::new(std::env::var("RPC_URL")?);
     log::info!("Base path: {}", base_path);
@@ -70,11 +74,9 @@ pub async fn main() -> anyhow::Result<()> {
             wrap_and_unwrap_sol: true,
             fee_account: None,
             destination_token_account: None,
-            compute_unit_price_micro_lamports: Some(ComputeUnitPriceMicroLamports::MicroLamports(
-                100_000,
-            )),
-            prioritization_fee_lamports: None,
-            dynamic_compute_unit_limit: true,
+            compute_unit_price_micro_lamports: None,
+            prioritization_fee_lamports: Some(PrioritizationFeeLamports::AutoMultiplier(1_000)),
+            dynamic_compute_unit_limit: false,
             as_legacy_transaction: false,
             use_shared_accounts: false,
             use_token_ledger: false,

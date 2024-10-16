@@ -7,14 +7,19 @@ use solana_sdk::pubkey::Pubkey;
 
 #[derive(Parser)]
 pub struct Config {
+    /// The host of the api server to connect to
     #[clap(long, env = "HOST")]
     server_host: String,
+    /// The port of the api server to connect to
     #[clap(long, env = "PORT")]
     server_port: String,
+    /// The input mint for the swap
     #[clap(long, env)]
     input_mint: Pubkey,
+    /// The output mint for the swap
     #[clap(long, env)]
     output_mint: Pubkey,
+    /// The amount provided for the swap
     #[clap(long, env)]
     amount: u64,
 }
