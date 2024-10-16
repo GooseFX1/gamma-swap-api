@@ -1,4 +1,4 @@
-# gamma-swap-api
+# GAMMA Swap API
 ## Commands
 - `cargo run use-rpc` to run in rpc-polling mode. This requires that the `RPC_NEW_POOLS_FREQUENCY` and `RPC_ACCOUNT_REFRESH_FREQUENCY` env variables be set, or passed as args with `gpa-poll-frequency-seconds` and `refresh-frequency-seconds` respectively
 
