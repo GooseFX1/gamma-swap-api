@@ -6,8 +6,8 @@ use axum::{
     extract::{Json, Query, State},
     http::StatusCode,
 };
-use jupiter_swap_api_client::quote::{QuoteRequest, QuoteResponse};
 use log::error;
+use swap_api::quote::{QuoteRequest, QuoteResponse};
 
 pub async fn quote(
     State(gfx_swap): State<GfxSwapClient>,

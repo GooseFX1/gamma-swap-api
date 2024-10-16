@@ -1,26 +1,37 @@
+use clap::Parser;
 use jupiter_swap_api_client::{
     quote::{QuoteRequest, SwapMode},
     JupiterSwapApiClient,
 };
-use solana_sdk::{pubkey, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 
-const MINT_1: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
-const MINT_2: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+#[derive(Parser)]
+pub struct Config {
+    #[clap(long, env = "HOST")]
+    server_host: String,
+    #[clap(long, env = "PORT")]
+    server_port: String,
+    #[clap(long, env)]
+    input_mint: Pubkey,
+    #[clap(long, env)]
+    output_mint: Pubkey,
+    #[clap(long, env)]
+    amount: u64,
+}
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
     dotenv::dotenv()?;
     env_logger::init();
 
-    let host = std::env::var("HOST")?;
-    let port = std::env::var("PORT")?;
-    let base_path = format!("http://{}:{}", host, port);
+    let opts = Config::parse();
+    let base_path = format!("http://{}:{}", opts.server_host, opts.server_port);
     log::info!("Base path: {}", base_path);
 
     let quote_request = QuoteRequest {
-        input_mint: MINT_1,
-        output_mint: MINT_2,
-        amount: 1_000_000,
+        input_mint: opts.input_mint,
+        output_mint: opts.output_mint,
+        amount: opts.amount,
         swap_mode: Some(SwapMode::ExactIn),
         slippage_bps: 1000,
         platform_fee_bps: None,

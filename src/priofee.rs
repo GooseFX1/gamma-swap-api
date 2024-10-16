@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -9,16 +9,16 @@ use tokio::sync::RwLock;
 
 // https://marketplace.quicknode.com/add-on/solana-priority-fee
 
-const DEFAULT_N_BLOCKS: u16 = 150;
+const DEFAULT_N_BLOCKS: u16 = 100;
 const DEFAULT_DURATION: Duration = Duration::from_secs(1);
 
 #[derive(Clone)]
 pub struct PrioFeesHandle {
-    latest: Arc<RwLock<QnPriofeeResponse>>,
+    latest: Arc<RwLock<QnPriofee>>,
 }
 
 impl PrioFeesHandle {
-    pub async fn get_latest_priofee(&self) -> QnPriofeeResponse {
+    pub async fn get_latest_priofee(&self) -> QnPriofee {
         *self.latest.read().await
     }
 }
@@ -40,7 +40,10 @@ pub async fn start_priofees_task(
             loop {
                 interval.tick().await;
                 match qn_priority_fee_request(&url, n_blocks, account.clone()).await {
-                    Ok(response) => *latest.write().await = response,
+                    Ok(response) => {
+                        // log::debug!("{response:#?}");
+                        *latest.write().await = response;
+                    }
                     Err(e) => error!("{}", e),
                 }
             }
@@ -54,7 +57,7 @@ pub async fn qn_priority_fee_request(
     url: &str,
     n_blocks: Option<u16>,
     account: Option<String>,
-) -> anyhow::Result<QnPriofeeResponse> {
+) -> anyhow::Result<QnPriofee> {
     let last_n_blocks = n_blocks.unwrap_or(DEFAULT_N_BLOCKS);
     let mut params = json!({
         "last_n_blocks": last_n_blocks
@@ -76,39 +79,40 @@ pub async fn qn_priority_fee_request(
         .send()
         .await;
 
-    let response = match response {
-        Ok(response) => response,
+    let mut json = match response {
+        Ok(response) => response.json::<serde_json::Value>().await?,
         Err(err) => bail!("Priofee req send error: {err}"),
     };
 
-    let status = response.status();
-    let text = match response.text().await {
-        Ok(text) => text,
-        Err(err) => bail!("Fail reading priofee response: {err:#}"),
-    };
-
-    if !status.is_success() {
-        bail!("status code: {status}, response: {text}");
+    if let Some(result) = json.get_mut("result").map(|res| res.take()) {
+        Ok(serde_json::from_value(result)?)
+    } else if let Some(error) = json.get_mut("error").map(|err| err.take()) {
+        let error = serde_json::from_value::<Error>(error)?;
+        Err(anyhow!(
+            "qn_estimatePriorityFees error: {}: {}",
+            error.message,
+            error.data
+        ))
+    } else {
+        Err(anyhow!("qn_estimatePriorityFees error: Invalid response"))
     }
-
-    let response = match serde_json::from_str(&text) {
-        Ok(response) => response,
-        Err(err) => anyhow::bail!(
-            "fail to deserialize response: {err:#}, response: {text}, status: {status}"
-        ),
-    };
-
-    Ok(response)
 }
 
-// Note: If not mistaken, `per-compute-unit` gives the cu-price avg while `per-transaction` gives the priority-fee avg. todo
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct QnPriofeeResponse {
+#[derive(Clone, Deserialize, Debug)]
+struct Error {
+    #[allow(unused)]
+    code: i32,
+    message: String,
+    data: String,
+}
+
+#[derive(Copy, Clone, Deserialize, Debug)]
+pub struct QnPriofee {
+    #[allow(unused)]
     context: Context,
     /// It provides estimates for priority fees (in microlamports) based on per-compute-unit metrics
     pub per_compute_unit: Priority,
-    /// It provides estimates for priority fees based on per-transaction metrics
+    /// It provides estimates for priority fees (in lamports) based on per-transaction metrics
     pub per_transaction: Priority,
 }
 
@@ -127,5 +131,5 @@ pub struct Priority {
     pub medium: u64,
     /// Fee estimate for 40th percentile
     pub low: u64,
-    // percentiles: todo!()
+    // percentiles:
 }

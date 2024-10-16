@@ -1,3 +1,4 @@
+use clap::Parser;
 use jupiter_swap_api_client::{
     quote::{QuoteRequest, SwapMode},
     swap::SwapRequest,
@@ -5,37 +6,50 @@ use jupiter_swap_api_client::{
     JupiterSwapApiClient,
 };
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
+use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 use solana_sdk::{
     commitment_config::CommitmentConfig, signature::EncodableKey, transaction::VersionedTransaction,
 };
-use solana_sdk::{pubkey, pubkey::Pubkey};
 
-const MINT_1: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
-const MINT_2: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+#[derive(Parser)]
+pub struct Config {
+    #[clap(long, env = "HOST")]
+    server_host: String,
+    #[clap(long, env = "PORT")]
+    server_port: String,
+    #[clap(long, env)]
+    input_mint: Pubkey,
+    #[clap(long, env)]
+    output_mint: Pubkey,
+    #[clap(long, env)]
+    amount: u64,
+    #[clap(long, env = "KEYPAIR_PATH", default_value = "keypair.json")]
+    keypair_path: String,
+}
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
     dotenv::dotenv()?;
     env_logger::init();
 
-    let host = std::env::var("HOST")?;
-    let port = std::env::var("PORT")?;
+    let opts = Config::parse();
     let keypair =
         solana_sdk::signature::Keypair::read_from_file("keypair.json").expect("No keypair file");
-    let base_path = format!("http://{}:{}", host, port);
+    let base_path = format!("http://{}:{}", opts.server_host, opts.server_port);
     let rpc_client = RpcClient::new(std::env::var("RPC_URL")?);
     log::info!("Base path: {}", base_path);
 
     let client = JupiterSwapApiClient {
         base_path: "http://127.0.0.1:3000".to_string(),
+        // base_path: "https://quote-api.jup.ag/v6".to_string()
     };
 
     let quote_response = client
         .quote(&QuoteRequest {
-            input_mint: MINT_1,
-            output_mint: MINT_2,
-            amount: 10_000_000, // 0.01 SOL
+            input_mint: opts.input_mint,
+            output_mint: opts.output_mint,
+            amount: opts.amount,
             swap_mode: Some(SwapMode::ExactIn),
             slippage_bps: 1000,
             platform_fee_bps: None,

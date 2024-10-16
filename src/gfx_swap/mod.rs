@@ -14,18 +14,25 @@ use tokio::sync::RwLock;
 pub struct GfxSwapClient {
     /// Solana RPC client
     pub solana_rpc: Arc<RpcClient>,
+
     /// Handle for retrieving accountInfos
     pub accounts_service: AccountsService,
+
     /// The Gamma protocol config address
     pub gamma_config: Pubkey,
+
     /// The Gamma program
     pub gamma_program_id: Pubkey,
+
     /// Handle for getting latest blockhash
     pub blockhash: Arc<RwLock<RecentBlockhash>>,
+
     /// Handle for getting latest priority fees
     pub priofees_handle: Option<PrioFeesHandle>,
+
     /// The referral account
     pub referral: Option<Pubkey>,
+
     /// The referral program
     pub referral_program: Option<Pubkey>,
 }

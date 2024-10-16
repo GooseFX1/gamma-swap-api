@@ -8,8 +8,6 @@ use std::time::{Instant, SystemTime};
 use anchor_lang::AccountDeserialize;
 use gamma::curve::{CurveCalculator, TradeDirection};
 use gamma::states::{AmmConfig, ObservationState, PoolState};
-use jupiter_swap_api_client::quote::{QuoteRequest, QuoteResponse, SwapMode};
-use jupiter_swap_api_client::route_plan_with_metadata::{RoutePlanStep, SwapInfo};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use solana_sdk::program_error::ProgramError;
@@ -18,6 +16,8 @@ use spl_token_2022::{
     extension::{BaseState, BaseStateWithExtensions, StateWithExtensionsMut},
     state::{Account, Mint},
 };
+use swap_api::quote::{QuoteRequest, QuoteResponse, SwapMode};
+use swap_api::route_plan_with_metadata::{RoutePlanStep, SwapInfo};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -95,6 +95,7 @@ impl GfxSwapClient {
             SwapMode::ExactOut => false,
         };
 
+        log::debug!("Pool: {}", pool);
         log::debug!("Token0 vault amount: {}", token_0_vault_info.base.amount);
         log::debug!("Token1 vault amount: {}", token_1_vault_info.base.amount);
         let (total_token_0_amount, total_token_1_amount) = pool_state.vault_amount_without_fee(

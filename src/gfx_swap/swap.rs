@@ -6,13 +6,6 @@ use anchor_lang::prelude::AccountMeta;
 use anchor_lang::AccountDeserialize;
 use gamma::curve::TradeDirection;
 use gamma::states::{AmmConfig, PoolState};
-use jupiter_swap_api_client::quote::SwapMode;
-use jupiter_swap_api_client::swap::{
-    SwapInstructionsResponse, SwapInstructionsResponseInternal, SwapRequest, SwapResponse,
-};
-use jupiter_swap_api_client::transaction_config::{
-    ComputeUnitPriceMicroLamports, PrioritizationFeeLamports, TransactionConfig,
-};
 use rand::Rng;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -22,6 +15,13 @@ use solana_sdk::message::{Message, VersionedMessage};
 use solana_sdk::signature::Signature;
 use solana_sdk::transaction::VersionedTransaction;
 use solana_sdk::{pubkey, pubkey::Pubkey};
+use swap_api::quote::SwapMode;
+use swap_api::swap::{
+    SwapInstructionsResponse, SwapInstructionsResponseInternal, SwapRequest, SwapResponse,
+};
+use swap_api::transaction_config::{
+    ComputeUnitPriceMicroLamports, PrioritizationFeeLamports, TransactionConfig,
+};
 use thiserror::Error;
 
 /// Protocol defined: The default compute units set for a transaction
@@ -32,6 +32,11 @@ const MICRO_LAMPORTS_PER_LAMPORT: u64 = 1_000_000;
 const MAX_AUTO_PRIORITY_FEE_LAMPORTS: u64 = 5_000_000;
 /// ID of the referral program
 const REFERRAL_PROGRAM_MAINNET: Pubkey = pubkey!("REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3");
+
+/// Make sure the cu-price used is at least this value in micro-lamports
+const MIN_CU_PRICE: u64 = 20_000;
+/// Make sure the priority-fee used is at least this value in lamports
+const MIN_PRIORITY_FEE: u64 = 20_000;
 
 #[derive(Debug, Error)]
 pub enum SwapError {
@@ -47,6 +52,8 @@ pub enum SwapError {
     SignerError(#[from] solana_sdk::signer::SignerError),
     #[error(transparent)]
     SerializeTxn(#[from] bincode::Error),
+    #[error("Prioritization fee calculation resulted in overflow")]
+    PrioritizationFeeOverflow,
 }
 
 impl GfxSwapClient {
@@ -126,7 +133,7 @@ impl GfxSwapClient {
             .accounts_service
             .get_account(&self.gamma_config)
             .await?;
-        let amm_config = AmmConfig::try_deserialize(&mut &config_account[..])?;
+        let _amm_config = AmmConfig::try_deserialize(&mut &config_account[..])?;
 
         let trade_direction = if req.quote_response.input_mint == token_0_mint {
             TradeDirection::ZeroForOne
@@ -268,7 +275,6 @@ impl GfxSwapClient {
             )
             .0;
             accounts.extend([
-                AccountMeta::new_readonly(amm_config.referral_project, false),
                 AccountMeta::new_readonly(referral_account, false),
                 AccountMeta::new(referral_token_account, false),
             ]);
@@ -319,6 +325,7 @@ impl GfxSwapClient {
             };
 
         if let Some(compute_units) = dynamic_compute {
+            log::trace!("setting dynamic compute unit: {}", compute_units);
             instructions.compute_budget_instructions.push(
                 solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(
                     compute_units,
@@ -327,59 +334,83 @@ impl GfxSwapClient {
         }
 
         let compute_units = dynamic_compute.unwrap_or(DEFAULT_INSTRUCTION_COMPUTE_UNIT);
+        log::debug!("Compute unit price microlamports: {compute_unit_price_micro_lamports:#?}");
+        log::debug!("Prioritization fee lamports: {prioritization_fee_lamports:#?}");
         match (
             compute_unit_price_micro_lamports,
             prioritization_fee_lamports,
         ) {
-            (Some(ComputeUnitPriceMicroLamports::MicroLamports(cu_lamports)), _) => {
+            (Some(ComputeUnitPriceMicroLamports::MicroLamports(cu_price)), _) => {
+                log::trace!("setting user defined cu-price: {}", cu_price);
                 let compute_ix =
                     solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
-                        *cu_lamports,
+                        *cu_price,
                     );
                 instructions.compute_budget_instructions.push(compute_ix);
             }
-            (Some(ComputeUnitPriceMicroLamports::Auto), _) => {
-                if let Some(handle) = &self.priofees_handle {
-                    let cu_price = handle.get_latest_priofee().await.per_compute_unit.medium;
-                    let compute_ix =
-                        solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
-                            cu_price,
-                        );
-                    instructions.compute_budget_instructions.push(compute_ix);
-                }
-            }
-            (None, Some(PrioritizationFeeLamports::Auto)) => {
-                // protocol: priority-fee = cu-price * cu-limit / 1_000_000
-                // agave: priority-fee = (cu-price * cu-limit + 999_999) / 1_000_000
-                let priofee = match &self.priofees_handle {
-                    Some(handle) => std::cmp::min(
-                        handle.get_latest_priofee().await.per_transaction.medium,
-                        MAX_AUTO_PRIORITY_FEE_LAMPORTS,
+            (Some(ComputeUnitPriceMicroLamports::Auto), _) | (None, None) => {
+                let cu_price = match &self.priofees_handle {
+                    Some(handle) => std::cmp::max(
+                        MIN_CU_PRICE,
+                        handle.get_latest_priofee().await.per_compute_unit.medium,
                     ),
-                    None => MAX_AUTO_PRIORITY_FEE_LAMPORTS,
+                    None => MIN_CU_PRICE,
                 };
-                let cu_price = (priofee as u128)
-                    .checked_mul(MICRO_LAMPORTS_PER_LAMPORT as u128)
-                    .expect("u128 multiplication shouldn't overflow")
-                    .saturating_sub(MICRO_LAMPORTS_PER_LAMPORT as u128 - 1)
-                    .checked_div(compute_units as u128)
-                    .expect("non-zero compute units");
-                let cu_price = u64::try_from(cu_price).unwrap_or(u64::MAX);
+                log::trace!("cu-price-microlamports: cu-price={}", cu_price);
                 let compute_ix =
                     solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
                         cu_price,
                     );
                 instructions.compute_budget_instructions.push(compute_ix);
             }
-            (None, Some(PrioritizationFeeLamports::AutoMultiplier(_multiplier))) => {
-                // Still unclear on what this means
-                // ?? let max_priority_fee = 5_000_000 * multiplier
+            (None, Some(PrioritizationFeeLamports::Auto)) => {
+                // protocol: priority-fee = cu-price * cu-limit / 1_000_000
+                // agave: priority-fee = (cu-price * cu-limit + 999_999) / 1_000_000
+                let priofee = match &self.priofees_handle {
+                    Some(handle) => {
+                        let priofee = std::cmp::max(
+                            MIN_PRIORITY_FEE,
+                            handle.get_latest_priofee().await.per_transaction.medium,
+                        );
+                        std::cmp::min(priofee, MAX_AUTO_PRIORITY_FEE_LAMPORTS)
+                    }
+                    None => MAX_AUTO_PRIORITY_FEE_LAMPORTS,
+                };
+                let cu_price = calculate_cu_price(priofee, compute_units);
+                log::trace!(
+                    "prioritization-fee-lamports: cu-price={}. priofee={}, cu-limit={}",
+                    cu_price,
+                    priofee,
+                    compute_units
+                );
+                let compute_ix =
+                    solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
+                        cu_price,
+                    );
+                instructions.compute_budget_instructions.push(compute_ix);
+            }
+            (None, Some(PrioritizationFeeLamports::AutoMultiplier(multiplier))) => {
+                let priofee = (*multiplier as u64)
+                    .checked_mul(100_000)
+                    .ok_or(SwapError::PrioritizationFeeOverflow)?;
+                let cu_price = calculate_cu_price(priofee, compute_units);
+                log::trace!(
+                    "prioritization-fee-lamports: cu-price={}, multiplier={}. priofee={}, cu-limit={}",
+                    cu_price,
+                    multiplier,
+                    priofee,
+                    compute_units
+                );
+                let compute_ix =
+                    solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
+                        cu_price,
+                    );
+                instructions.compute_budget_instructions.push(compute_ix);
             }
             (None, Some(PrioritizationFeeLamports::JitoTipLamports(jito_tip))) => {
                 let tip_ix = build_jito_tip_ix(&req.user_public_key, *jito_tip);
                 instructions.setup_instructions.push(tip_ix);
             }
-            (None, None) => {}
         }
 
         Ok(instructions)
@@ -414,6 +445,17 @@ fn build_transaction(
         signatures: vec![Signature::default()],
         message,
     }
+}
+
+fn calculate_cu_price(priority_fee: u64, compute_units: u32) -> u64 {
+    let cu_price = (priority_fee as u128)
+        .checked_mul(MICRO_LAMPORTS_PER_LAMPORT as u128)
+        .expect("u128 multiplication shouldn't overflow")
+        .saturating_sub(MICRO_LAMPORTS_PER_LAMPORT as u128 - 1)
+        .checked_div(compute_units as u128 + 1)
+        .expect("non-zero compute units");
+    log::trace!("cu-price u128: {}", cu_price);
+    u64::try_from(cu_price).unwrap_or(u64::MAX)
 }
 
 const JITO_TIP_ACCOUNTS: [Pubkey; 8] = [

@@ -6,8 +6,8 @@ use axum::{
     extract::{Json, State},
     http::StatusCode,
 };
-use jupiter_swap_api_client::swap::{SwapInstructionsResponseInternal, SwapRequest, SwapResponse};
 use log::error;
+use swap_api::swap::{SwapInstructionsResponseInternal, SwapRequest, SwapResponse};
 
 pub async fn swap_instructions(
     State(gfx_swap): State<GfxSwapClient>,
