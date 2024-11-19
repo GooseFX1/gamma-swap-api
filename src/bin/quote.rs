@@ -54,11 +54,11 @@ pub async fn main() -> anyhow::Result<()> {
     let quote_response = client.quote(&quote_request).await?;
     log::info!("Quote response from Gamma API: {:#?}", quote_response);
 
-    let client = JupiterSwapApiClient {
-        base_path: "https://quote-api.jup.ag/v6".to_string(),
-    };
-    let quote_response = client.quote(&quote_request).await?;
-    log::info!("Quote response from Jupiter API: {:#?}", quote_response);
+    // let client = JupiterSwapApiClient {
+    //     base_path: "https://quote-api.jup.ag/v6".to_string(),
+    // };
+    // let quote_response = client.quote(&quote_request).await?;
+    // log::info!("Quote response from Jupiter API: {:#?}", quote_response);
 
     Ok(())
 }

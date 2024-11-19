@@ -24,6 +24,7 @@ mod gfx_swap;
 mod handlers;
 mod priofee;
 mod utils;
+mod tx_utils;
 
 #[derive(Debug, Parser)]
 #[clap(version, about, long_about = None)]

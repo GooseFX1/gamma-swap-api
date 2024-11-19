@@ -11,6 +11,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::{
     commitment_config::CommitmentConfig, signature::EncodableKey, transaction::VersionedTransaction,
 };
+use gamma_swap_api::tx_utils::decode_logs::decode_transaction_logs;
 
 #[derive(Parser)]
 pub struct Config {
@@ -75,7 +76,7 @@ pub async fn main() -> anyhow::Result<()> {
             fee_account: None,
             destination_token_account: None,
             compute_unit_price_micro_lamports: None,
-            prioritization_fee_lamports: Some(PrioritizationFeeLamports::AutoMultiplier(1_000)),
+            prioritization_fee_lamports: Some(PrioritizationFeeLamports::AutoMultiplier(10)),
             dynamic_compute_unit_limit: false,
             as_legacy_transaction: false,
             use_shared_accounts: false,
@@ -99,7 +100,10 @@ pub async fn main() -> anyhow::Result<()> {
             },
         )
         .await?;
-    println!("View confirmed txn at: https://solscan.io/tx/{}", signature);
+    println!("View confirmed txn at: https://explorer.solana.com/tx/{}", signature);
+
+    // Decode transaction logs
+    decode_transaction_logs(&rpc_client, &signature).await?;
 
     Ok(())
 }
