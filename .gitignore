@@ -1,3 +1,5 @@
 /target
 .env
+.envd
 keypair.json
+keypaird.json

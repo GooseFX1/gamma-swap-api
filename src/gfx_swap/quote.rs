@@ -149,7 +149,6 @@ impl GfxSwapClient {
                 amm_config.fund_fee_rate,
                 current_unix_timestamp,
                 &observation_state,
-                trade_direction,
             )
         } else {
             CurveCalculator::swap_base_output(
@@ -161,7 +160,6 @@ impl GfxSwapClient {
                 amm_config.fund_fee_rate,
                 current_unix_timestamp,
                 &observation_state,
-                trade_direction,
             )
         }?;
 
