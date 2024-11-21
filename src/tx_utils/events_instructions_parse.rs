@@ -156,7 +156,7 @@ pub fn handle_program_log(
                 println!("unknow event: {}", l);
             }
         }
-        return Ok(( None, None, false));
+        return Ok((None, None, false));
     } else {
         let (program, did_pop) = handle_system_log(self_program_str, l);
         return Ok((None, program, did_pop));

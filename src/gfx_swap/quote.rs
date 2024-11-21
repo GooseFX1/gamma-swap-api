@@ -104,7 +104,7 @@ impl GfxSwapClient {
         )?;
 
         let (
-            trade_direction,
+            _trade_direction,
             total_input_token_amount,
             total_output_token_amount,
             input_token_mint,
@@ -134,11 +134,15 @@ impl GfxSwapClient {
 
         let actual_amount_specified = get_amount_after_transfer_fee(
             quote.amount,
-            &input_token_mint,
-            &output_token_mint,
+            if base_in {
+                &input_token_mint
+            } else {
+                &output_token_mint
+            },
             base_in,
             epoch,
         );
+
         let swap_result = if base_in {
             CurveCalculator::swap_base_input(
                 u128::from(actual_amount_specified),
@@ -172,11 +176,15 @@ impl GfxSwapClient {
 
         let other_amount = get_amount_after_transfer_fee(
             other_amount,
-            &input_token_mint,
-            &output_token_mint,
+            if base_in {
+                &output_token_mint
+            } else {
+                &input_token_mint
+            },
             base_in,
             epoch,
         );
+
         let other_amount_threshold =
             amount_with_slippage(other_amount, quote.slippage_bps as f64 / 10_000.0, !base_in);
 
@@ -235,19 +243,12 @@ pub fn amount_with_slippage(amount: u64, slippage: f64, round_up: bool) -> u64 {
     }
 }
 
-pub fn get_amount_after_transfer_fee<'data, S: BaseState>(
+pub fn get_amount_after_transfer_fee<S: BaseState>(
     amount: u64,
-    input_token_mint: &StateWithExtensionsMut<'data, S>,
-    output_token_mint: &StateWithExtensionsMut<'data, S>,
+    mint: &StateWithExtensionsMut<'_, S>,
     base_in: bool,
     epoch: u64,
 ) -> u64 {
-    let mint = if base_in {
-        input_token_mint // user-specified amount is input
-    } else {
-        output_token_mint // user-specified amount is output
-    };
-
     let fee = if base_in {
         get_transfer_fee(mint, epoch, amount)
     } else {
