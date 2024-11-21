@@ -1,24 +1,20 @@
-use core::convert::From;
-use gamma::states::SwapEvent;
-use tokio::time::{sleep, Duration};
 use clap::Parser;
+use core::convert::From;
+use csv::Writer;
+use gamma_swap_api::tx_utils::decode_logs::decode_transaction_logs;
 use jupiter_swap_api_client::{
-    quote::{QuoteRequest, SwapMode, PlatformFee},
+    quote::{PlatformFee, QuoteRequest, SwapMode},
     swap::SwapRequest,
     transaction_config::{PrioritizationFeeLamports, TransactionConfig},
     JupiterSwapApiClient,
 };
+use serde::{Deserialize, Serialize};
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
 use solana_sdk::{
-    commitment_config::CommitmentConfig, 
-    pubkey::Pubkey,
-    signer::Signer,
-    signature::EncodableKey, 
+    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::EncodableKey, signer::Signer,
     transaction::VersionedTransaction,
 };
-use gamma_swap_api::tx_utils::decode_logs::decode_transaction_logs;
-use serde::{Serialize, Deserialize};
-use csv::Writer;
+use tokio::time::{sleep, Duration};
 
 #[derive(Parser)]
 pub struct Config {
@@ -88,7 +84,7 @@ pub async fn main() -> anyhow::Result<()> {
     let rpc_client = RpcClient::new(std::env::var("RPC_URL")?);
     log::info!("Base path: {}", base_path);
 
-    let client = JupiterSwapApiClient {
+    let _client = JupiterSwapApiClient {
         base_path: "http://127.0.0.1:3000".to_string(),
         // base_path: "https://quote-api.jup.ag/v6".to_string()
     };
@@ -98,9 +94,9 @@ pub async fn main() -> anyhow::Result<()> {
     // Write CSV headers
     wtr.write_record(&[
         "pool_id",
-        "input_mint", 
+        "input_mint",
         "quote_in_amount",
-        "output_mint", 
+        "output_mint",
         "quote_out_amount",
         "other_amount_threshold",
         "swap_mode",
@@ -208,31 +204,27 @@ pub async fn main() -> anyhow::Result<()> {
                 continue; // Skip to the next iteration
             }
         };
-        println!("View confirmed txn at: https://explorer.solana.com/tx/{}", signature);
+        println!(
+            "View confirmed txn at: https://explorer.solana.com/tx/{}",
+            signature
+        );
 
         // Decode transaction logs to get SwapInfo and SwapEvent
-        let mut swap_event: SwapEvent = SwapEvent {
-            pool_id: Pubkey::default(),
-            input_vault_before: 0,
-            output_vault_before: 0,
-            input_amount: 0,
-            output_amount: 0,
-            input_transfer_fee: 0,
-            output_transfer_fee: 0,
-            base_input: false,
-            dynamic_fee: 0,
+        let swap_event = match decode_transaction_logs(&rpc_client, &signature).await {
+            Ok(event) => event,
+            Err(e) => {
+                log::error!("Failed to decode transaction logs: {}", e);
+                continue; // Skip to the next iteration
+            }
         };
-        if let Err(e) = decode_transaction_logs(&rpc_client, &signature, &mut swap_event).await {
-            log::error!("Failed to decode transaction logs: {}", e);
-            continue; // Skip to the next iteration
-        }
         println!("{:#?}", swap_event);
 
-        let platform_fee: PlatformFee = if let Some(platform_fee) = quote_response.clone().platform_fee {
-            platform_fee
-        } else {
-            PlatformFeeWrapper::default().0 // Use default value if platform_fee is None
-        };
+        let platform_fee: PlatformFee =
+            if let Some(platform_fee) = quote_response.clone().platform_fee {
+                platform_fee
+            } else {
+                PlatformFeeWrapper::default().0 // Use default value if platform_fee is None
+            };
 
         let swap_mode_string: String = match quote_response.swap_mode {
             SwapMode::ExactIn => "ExactIn".to_string(),

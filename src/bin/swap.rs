@@ -1,4 +1,5 @@
 use clap::Parser;
+use gamma_swap_api::tx_utils::decode_logs::decode_transaction_logs;
 use jupiter_swap_api_client::{
     quote::{QuoteRequest, SwapMode},
     swap::SwapRequest,
@@ -11,7 +12,6 @@ use solana_sdk::signer::Signer;
 use solana_sdk::{
     commitment_config::CommitmentConfig, signature::EncodableKey, transaction::VersionedTransaction,
 };
-use gamma_swap_api::tx_utils::decode_logs::decode_transaction_logs;
 
 #[derive(Parser)]
 pub struct Config {
@@ -100,7 +100,10 @@ pub async fn main() -> anyhow::Result<()> {
             },
         )
         .await?;
-    println!("View confirmed txn at: https://explorer.solana.com/tx/{}", signature);
+    println!(
+        "View confirmed txn at: https://explorer.solana.com/tx/{}",
+        signature
+    );
 
     // Decode transaction logs
     decode_transaction_logs(&rpc_client, &signature).await?;
