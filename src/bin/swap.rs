@@ -76,7 +76,7 @@ pub async fn main() -> anyhow::Result<()> {
             fee_account: None,
             destination_token_account: None,
             compute_unit_price_micro_lamports: None,
-            prioritization_fee_lamports: Some(PrioritizationFeeLamports::AutoMultiplier(10)),
+            prioritization_fee_lamports: Some(PrioritizationFeeLamports::AutoMultiplier(100)),
             dynamic_compute_unit_limit: false,
             as_legacy_transaction: false,
             use_shared_accounts: false,

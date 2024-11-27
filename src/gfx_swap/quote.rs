@@ -148,9 +148,8 @@ impl GfxSwapClient {
                 u128::from(actual_amount_specified),
                 u128::from(total_input_token_amount),
                 u128::from(total_output_token_amount),
-                amm_config.trade_fee_rate,
-                amm_config.protocol_fee_rate,
-                amm_config.fund_fee_rate,
+                &amm_config,
+                &pool_state,
                 current_unix_timestamp,
                 &observation_state,
             )
@@ -159,9 +158,8 @@ impl GfxSwapClient {
                 u128::from(actual_amount_specified),
                 u128::from(total_input_token_amount),
                 u128::from(total_output_token_amount),
-                amm_config.trade_fee_rate,
-                amm_config.protocol_fee_rate,
-                amm_config.fund_fee_rate,
+                &amm_config,
+                &pool_state,
                 current_unix_timestamp,
                 &observation_state,
             )
