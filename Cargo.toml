@@ -17,7 +17,7 @@ csv = "1.3.1"
 dotenv = "0.15.0"
 env_logger = "0.11.5"
 jupiter-swap-api-client = { git = "https://github.com/jup-ag/jupiter-swap-api-client.git", branch = "release/0.1.0" }
-gamma = { git = "https://github.com/GooseFX1/gamma-swap.git", rev = "399250bd857b4278cac1c3e2ad45a235dd9d3af4" }
+gamma = { git = "https://github.com/GooseFX1/gamma-swap.git", rev = "c4ca68e730a39a0d50ec3dc7994b5d765c29f631" }
 hex = "0.4.3"
 log = "0.4.22"
 regex = "1.11.1"

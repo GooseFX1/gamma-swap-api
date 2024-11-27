@@ -375,20 +375,23 @@ pub fn handle_program_instruction(
             }
             println!("{:#?}", Initialize::from(ix));
         }
-        instruction::UpdatePoolStatus::DISCRIMINATOR => {
-            let ix = decode_instruction::<instruction::UpdatePoolStatus>(&mut ix_data).unwrap();
+        instruction::UpdatePool::DISCRIMINATOR => {
+            let ix = decode_instruction::<instruction::UpdatePool>(&mut ix_data).unwrap();
             #[derive(Debug)]
-            pub struct UpdatePoolStatus {
-                pub status: u8,
+            pub struct UpdatePool {
+                pub param: u32,
+                pub value: u64,
             }
-            impl From<instruction::UpdatePoolStatus> for UpdatePoolStatus {
-                fn from(instr: instruction::UpdatePoolStatus) -> UpdatePoolStatus {
-                    UpdatePoolStatus {
-                        status: instr.status,
+
+            impl From<instruction::UpdatePool> for UpdatePool {
+                fn from(value: instruction::UpdatePool) -> Self {
+                    UpdatePool {
+                        param: value.param,
+                        value: value.value,
                     }
                 }
             }
-            println!("{:#?}", UpdatePoolStatus::from(ix));
+            println!("{:#?}", UpdatePool::from(ix))
         }
         instruction::CollectProtocolFee::DISCRIMINATOR => {
             let ix = decode_instruction::<instruction::CollectProtocolFee>(&mut ix_data).unwrap();
