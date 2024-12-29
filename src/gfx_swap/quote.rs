@@ -14,7 +14,7 @@ use solana_sdk::program_error::ProgramError;
 use spl_token_2022::{
     extension::transfer_fee::{TransferFeeConfig, MAX_FEE_BASIS_POINTS},
     extension::{BaseState, BaseStateWithExtensions, StateWithExtensionsMut},
-    state::{Account, Mint},
+    state::Mint,
 };
 use swap_api::quote::{QuoteRequest, QuoteResponse, SwapMode};
 use swap_api::route_plan_with_metadata::{RoutePlanStep, SwapInfo};
@@ -66,26 +66,18 @@ impl GfxSwapClient {
             .await
             .map_err(|_| QuoteError::PairNotTradeable)?;
         let pool_state = PoolState::try_deserialize(&mut &pool_account[..])?;
-        let token_0_vault = pool_state.token_0_vault;
-        let token_1_vault = pool_state.token_1_vault;
         let observation = pool_state.observation_key;
 
         let amm_config_account = self
             .accounts_service
             .get_account(&self.gamma_config)
             .await?;
-        let mut token_0_vault_account = self.accounts_service.get_account(&token_0_vault).await?;
-        let mut token_1_vault_account = self.accounts_service.get_account(&token_1_vault).await?;
         let mut token_0_mint_account = self.accounts_service.get_account(&token_0_mint).await?;
         let mut token_1_mint_account = self.accounts_service.get_account(&token_1_mint).await?;
         let observation_account = self.accounts_service.get_account(&observation).await?;
 
         let amm_config = AmmConfig::try_deserialize(&mut &amm_config_account[..])?;
         let observation_state = ObservationState::try_deserialize(&mut &observation_account[..])?;
-        let token_0_vault_info =
-            StateWithExtensionsMut::<Account>::unpack(&mut token_0_vault_account)?;
-        let token_1_vault_info =
-            StateWithExtensionsMut::<Account>::unpack(&mut token_1_vault_account)?;
         let token_0_mint_info = StateWithExtensionsMut::<Mint>::unpack(&mut token_0_mint_account)?;
         let token_1_mint_info = StateWithExtensionsMut::<Mint>::unpack(&mut token_1_mint_account)?;
 
@@ -95,9 +87,11 @@ impl GfxSwapClient {
             SwapMode::ExactOut => false,
         };
 
+        let token_0_vault_amount = pool_state.token_0_vault_amount;
+        let token_1_vault_amount = pool_state.token_1_vault_amount;
         log::debug!("Pool: {}", pool);
-        log::debug!("Token0 vault amount: {}", token_0_vault_info.base.amount);
-        log::debug!("Token1 vault amount: {}", token_1_vault_info.base.amount);
+        log::debug!("Token0 vault amount: {}", token_0_vault_amount);
+        log::debug!("Token1 vault amount: {}", token_1_vault_amount);
         let (total_token_0_amount, total_token_1_amount) = pool_state.vault_amount_without_fee()?;
 
         let (
@@ -106,7 +100,7 @@ impl GfxSwapClient {
             total_output_token_amount,
             input_token_mint,
             output_token_mint,
-        ) = if quote.input_mint == token_0_vault_info.base.mint {
+        ) = if quote.input_mint == pool_state.token_0_mint {
             (
                 TradeDirection::ZeroForOne,
                 total_token_0_amount,

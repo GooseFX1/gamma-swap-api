@@ -20,6 +20,7 @@ pub fn derive_pool_pda(
     )
 }
 
+#[allow(unused)]
 pub fn derive_vault_pda(pool: &Pubkey, mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[POOL_VAULT_SEED.as_bytes(), pool.as_ref(), mint.as_ref()],
@@ -44,7 +45,7 @@ pub fn get_keys_for_pool_exclusive(
         data.token_0_mint,
         data.token_1_mint,
         derive_observation_pda(pool, program_id).0,
-        derive_vault_pda(pool, &data.token_0_mint, program_id).0,
-        derive_vault_pda(pool, &data.token_1_mint, program_id).0,
+        // derive_vault_pda(pool, &data.token_0_mint, program_id).0,
+        // derive_vault_pda(pool, &data.token_1_mint, program_id).0,
     ]
 }
