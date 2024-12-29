@@ -211,7 +211,8 @@ pub async fn main() -> anyhow::Result<()> {
 
         // Decode transaction logs to get SwapInfo and SwapEvent
         let swap_event = match decode_transaction_logs(&rpc_client, &signature).await {
-            Ok(event) => event,
+            Ok(Some(event)) => event,
+            Ok(None) => continue,
             Err(e) => {
                 log::error!("Failed to decode transaction logs: {}", e);
                 continue; // Skip to the next iteration

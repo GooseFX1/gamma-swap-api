@@ -98,10 +98,7 @@ impl GfxSwapClient {
         log::debug!("Pool: {}", pool);
         log::debug!("Token0 vault amount: {}", token_0_vault_info.base.amount);
         log::debug!("Token1 vault amount: {}", token_1_vault_info.base.amount);
-        let (total_token_0_amount, total_token_1_amount) = pool_state.vault_amount_without_fee(
-            token_0_vault_info.base.amount,
-            token_1_vault_info.base.amount,
-        )?;
+        let (total_token_0_amount, total_token_1_amount) = pool_state.vault_amount_without_fee()?;
 
         let (
             _trade_direction,

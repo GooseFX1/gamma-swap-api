@@ -20,8 +20,7 @@ pub enum InstructionDecodeType {
 pub fn parse_program_event(
     self_program_str: &str,
     meta: Option<UiTransactionStatusMeta>,
-    swap_event_emitted: &mut SwapEvent,
-) -> Result<(), ClientError> {
+) -> Result<Option<SwapEvent>, ClientError> {
     let logs: Vec<String> = if let Some(meta_data) = meta {
         let log_messages = if let OptionSerializer::Some(log_messages) = meta_data.log_messages {
             log_messages
@@ -48,7 +47,7 @@ pub fn parse_program_event(
                     };
                 match swap_event {
                     Some(swap_event) => {
-                        *swap_event_emitted = swap_event;
+                        return Ok(Some(swap_event))
                     }
                     _ => {}
                 }
@@ -65,7 +64,7 @@ pub fn parse_program_event(
     } else {
         println!("log is empty");
     }
-    Ok(())
+    Ok(None)
 }
 
 struct Execution {
