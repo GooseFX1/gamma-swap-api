@@ -7,7 +7,7 @@ use solana_transaction_status::UiTransactionEncoding;
 pub async fn decode_transaction_logs(
     rpc_client: &RpcClient,
     signature: &Signature,
-) -> anyhow::Result<SwapEvent> {
+) -> anyhow::Result<Option<SwapEvent>> {
     let tx = rpc_client
         .get_transaction_with_config(
             signature,
@@ -33,23 +33,9 @@ pub async fn decode_transaction_logs(
         encoded_transaction,
         meta.clone(),
     )?;
-    let mut swap_event: SwapEvent = SwapEvent {
-        pool_id: Pubkey::default(),
-        input_vault_before: 0,
-        output_vault_before: 0,
-        input_amount: 0,
-        output_amount: 0,
-        input_transfer_fee: 0,
-        output_transfer_fee: 0,
-        base_input: false,
-        dynamic_fee: 0,
-    };
     // decode logs
     parse_program_event(
         gamma::id().to_string().as_str(),
         meta.clone(),
-        &mut swap_event,
-    )?;
-
-    Ok(swap_event)
+    ).map_err(Into::into)
 }
