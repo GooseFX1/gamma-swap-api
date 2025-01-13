@@ -275,6 +275,8 @@ impl GfxSwapClient {
             )
             .0;
             accounts.extend([
+                AccountMeta::new_readonly(gamma::ID, false),
+                AccountMeta::new_readonly(gamma::ID, false),
                 AccountMeta::new_readonly(referral_account, false),
                 AccountMeta::new(referral_token_account, false),
             ]);
