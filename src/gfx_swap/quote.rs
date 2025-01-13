@@ -143,6 +143,7 @@ impl GfxSwapClient {
                 &pool_state,
                 current_unix_timestamp,
                 &observation_state,
+                false
             )
         } else {
             CurveCalculator::swap_base_output(
@@ -153,6 +154,7 @@ impl GfxSwapClient {
                 &pool_state,
                 current_unix_timestamp,
                 &observation_state,
+                false
             )
         }?;
 
