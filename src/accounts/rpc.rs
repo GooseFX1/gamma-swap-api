@@ -57,7 +57,7 @@ pub async fn get_multiple_account_data(
                     .value
                     .into_iter()
                     .enumerate()
-                    .map(|(idx, v)| (keys[idx], v.map(|account| account.data))),
+                    .map(|(idx, v)| (chunk[idx], v.map(|account| account.data))),
             )
         });
     }
